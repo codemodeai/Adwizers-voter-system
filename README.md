@@ -70,6 +70,15 @@ npm run dev
 
 ---
 
+## Deploying
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for the full Hostinger VPS walkthrough
+(Node 22 + PM2 + Nginx + Let's Encrypt).
+
+This app **requires a Node.js runtime** — Server Actions, `proxy.ts` middleware,
+and per-request auth cookies mean there is no static-export path, so shared
+PHP hosting cannot run it.
+
 ## Security model
 
 The applicants table grants `anon` **nothing at all** — there is no public API
