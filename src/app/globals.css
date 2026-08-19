@@ -1,0 +1,151 @@
+@import "tailwindcss";
+
+/* AWE Awards 2026 -- Final Plan section 1, extracted from the AWE logo.
+ *
+ * Two layers of colour:
+ *   1. Brand tokens  -- fixed, never change between surfaces.
+ *   2. Semantic tokens -- what components actually reference. Redefining them
+ *      under [data-theme="dark"] flips the public form to the dark treatment
+ *      while the admin dashboard stays light, with no duplicated classes.
+ */
+@theme {
+  /* --- brand, fixed ------------------------------------------------ */
+  --color-purple-royal: #33004a;
+  --color-purple-deep: #4a0a68;
+  --color-purple-soft: #f4ecf8;
+  --color-magenta-royal: #c2006e;
+  --color-magenta-dark: #9c0058;
+  --color-magenta-soft: #fdeef6;
+  --color-gold-champagne: #c68f45;
+  --color-gold-soft: #faf3e9;
+  --color-charcoal: #2a2a2a;
+
+  /* --- semantic, light defaults ------------------------------------ */
+  --color-canvas: #faf8fb;
+  --color-surface: #ffffff;
+  --color-raised: #ffffff;
+  --color-line: #e7e1ec;
+  --color-line-strong: #d8cfe0;
+  --color-ink: #2a2a2a;
+  --color-ink-muted: #6b6472;
+  --color-heading: #33004a;
+  --color-accent: #c2006e;
+  --color-accent-hover: #9c0058;
+  --color-accent-soft: #fdeef6;
+  --color-gold: #c68f45;
+
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  --animate-step-in: step-in 0.5s cubic-bezier(0.22, 0.8, 0.24, 1) both;
+  --animate-rise: rise 0.6s cubic-bezier(0.22, 0.8, 0.24, 1) both;
+}
+
+/* Dark treatment for the public entry form. Only the semantic tokens move --
+ * every component keeps the same class names. */
+[data-theme="dark"] {
+  --color-canvas: #0f0016;
+  --color-surface: #1a0526;
+  --color-raised: #250c34;
+  --color-line: color-mix(in oklab, #f2eaf7 14%, transparent);
+  --color-line-strong: color-mix(in oklab, #f2eaf7 26%, transparent);
+  --color-ink: #f2eaf7;
+  --color-ink-muted: #b09fc0;
+  --color-heading: #ffffff;
+  --color-accent: #e21b8d;
+  --color-accent-hover: #f43fa5;
+  --color-accent-soft: color-mix(in oklab, #e21b8d 16%, transparent);
+  --color-gold: #dda963;
+}
+
+html {
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+@layer base {
+  ::selection {
+    background-color: var(--color-accent);
+    color: #fff;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  /* Film grain. Sits above the background but below content, so gradients on
+   * the dark theme read as printed rather than flat CSS. */
+  .noise::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.5;
+    mix-blend-mode: soft-light;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .noise-strong::before {
+    opacity: 0.85;
+    mix-blend-mode: overlay;
+  }
+
+  /* Chevron for native selects, drawn in the current theme's muted ink. */
+  .select-chevron {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23887a96' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 7.5 5 5 5-5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 1.15rem;
+  }
+
+  [data-theme="dark"] .select-chevron {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23b09fc0' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 7.5 5 5 5-5'/%3E%3C/svg%3E");
+  }
+}
+
+/* Panels animate in when they flip from display:none, which gives each step a
+ * sense of arriving rather than snapping into place. */
+@keyframes step-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
