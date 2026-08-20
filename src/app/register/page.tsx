@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { DarkShell } from "@/components/DarkShell";
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import type { Category } from "@/lib/types";
 import { RegistrationForm } from "./RegistrationForm";
 
@@ -11,10 +11,20 @@ export const metadata: Metadata = {
     "Enter the AWE Awards 2026 — celebrating women entrepreneurs. Submit your business for nomination.",
 };
 
+/**
+ * The only thing this page reads is the category list, which is identical for
+ * every visitor and changes about never. Rendering it per request put a
+ * Supabase round trip in front of the most important page on the site; this
+ * serves it from the CDN instead and refreshes it in the background every five
+ * minutes. Editing a category shows up within that window without a deploy.
+ */
+export const revalidate = 300;
+
 export default async function RegisterPage() {
   // Active categories are publicly readable by RLS policy, so the anon client
-  // is enough here -- no service role needed to render the form.
-  const supabase = await createClient();
+  // is enough here -- no service role needed, and no cookies, which is what
+  // lets this page be prerendered at all.
+  const supabase = createPublicClient();
   const { data, error } = await supabase
     .from("categories")
     .select("id, name, slug, sort_order, is_active")
