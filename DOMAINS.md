@@ -10,7 +10,7 @@ Adwiser-Voter-System (one repo, one codebase)
 │
 ├── Vercel project: awe-form          ├── Vercel project: awe-admin
 │     APP_TARGET=form                 │     APP_TARGET=admin
-│     → FORM DOMAIN                   │     → ADMIN DOMAIN
+│     → awe.adwizersnetworks.in       │     → admin.adwizersnetworks.in
 │                                     │
 │     serves  /                       │     serves  /admin/login
 │             /register               │             /admin/applicants
@@ -28,10 +28,10 @@ Adwiser-Voter-System (one repo, one codebase)
 | Request | Form deployment | Admin deployment |
 | --- | --- | --- |
 | `/` | landing page | → `/admin` → `/admin/applicants` |
-| `/register` | the form | 307 → *form domain* `/register` |
-| `/register/thank-you` | confirmation | 307 → *form domain* |
-| `/admin/login` | 307 → *admin domain* | sign-in page |
-| `/admin/applicants` | 307 → *admin domain* | dashboard (auth required) |
+| `/register` | the form | 307 → `awe.…/register` |
+| `/register/thank-you` | confirmation | 307 → `awe.…` |
+| `/admin/login` | 307 → `admin.…/admin/login` | sign-in page |
+| `/admin/applicants` | 307 → `admin.…` | dashboard (auth required) |
 | `/robots.txt` | `Allow: /` | `Disallow: /` |
 | **POST** to a foreign route | `404` | `404` |
 
@@ -55,8 +55,8 @@ Set these in **Vercel → Project → Settings → Environment Variables** for
 | Variable | Form project | Admin project |
 | --- | --- | --- |
 | `APP_TARGET` | `form` | `admin` |
-| `FORM_ORIGIN` | `https://FORM-DOMAIN` | `https://FORM-DOMAIN` |
-| `ADMIN_ORIGIN` | `https://ADMIN-DOMAIN` | `https://ADMIN-DOMAIN` |
+| `FORM_ORIGIN` | `https://awe.adwizersnetworks.in` | `https://awe.adwizersnetworks.in` |
+| `ADMIN_ORIGIN` | `https://admin.adwizersnetworks.in` | `https://admin.adwizersnetworks.in` |
 | `NEXT_PUBLIC_SUPABASE_URL` | same | same |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | same | same |
 | `SUPABASE_SECRET_KEY` | same | same |
@@ -69,8 +69,9 @@ Notes:
 - `SUPABASE_SECRET_KEY` is needed on *both*. The public form uses it to insert
   the applicant row and upload the logo (the `applicants` table grants `anon`
   nothing); the admin editor uses it for storage writes.
-- Bare hostnames work too — `admin.example.com` is normalised to
-  `https://admin.example.com`.
+- Bare hostnames work too — `admin.adwizersnetworks.in` is normalised to
+  `https://admin.adwizersnetworks.in`, so it does not matter which form you
+  paste into Vercel.
 - **Redeploy after changing any of them.** The proxy reads these per request,
   but statically prerendered output bakes in whatever was set at build time —
   and Vercel does not push new env values into an existing deployment anyway.
@@ -89,11 +90,11 @@ The repo is already linked to project `adwiser-voter-system`. Keep it as the
 
 Vercel → `adwiser-voter-system` → Settings:
 
-- **Environment Variables** → add `APP_TARGET=form`, plus `FORM_ORIGIN` and
-  `ADMIN_ORIGIN` once the domains are known.
+- **Environment Variables** → add `APP_TARGET=form`, `FORM_ORIGIN`, and
+  `ADMIN_ORIGIN` from the table above.
 - **General → Project Name** → rename to `awe-form` (optional, but the pair is
   much easier to tell apart in the dashboard).
-- **Domains** → add the form domain, set it as primary.
+- **Domains** → add `awe.adwizersnetworks.in` and set it as primary.
 
 ### 2. Create the admin project from the same repo
 
@@ -106,22 +107,28 @@ is expected and allowed; continue.
 - **Framework Preset:** Next.js (auto-detected)
 - **Root Directory:** `./` (unchanged — both projects build the same root)
 - **Environment Variables:** the table above, with `APP_TARGET=admin`
-- Deploy, then **Domains** → add the admin domain.
+- Deploy, then **Domains** → add `admin.adwizersnetworks.in`.
 
 Both projects now build on every push to `main`. A change to shared code
 redeploys both, which is what you want — they are one codebase.
 
 ### 3. DNS
 
-For each domain, Vercel's **Domains** tab prints the exact record. Typically:
+Both hosts are subdomains of `adwizersnetworks.in`, so this is two CNAME records
+at whoever runs that zone — no apex A record and no change to the root domain,
+which keeps the existing site untouched.
 
-| Record | Name | Value |
+| Type | Name | Value |
 | --- | --- | --- |
-| `A` | `@` (apex) | `76.76.21.21` |
-| `CNAME` | subdomain | `cname.vercel-dns.com` |
+| `CNAME` | `awe` | `cname.vercel-dns.com` |
+| `CNAME` | `admin` | `cname.vercel-dns.com` |
 
-Use whatever Vercel shows — it is authoritative over this table. Certificates
-issue automatically once the records resolve.
+Vercel's **Domains** tab prints the record it wants for each host and is
+authoritative over this table — use its value if it differs. Certificates issue
+automatically once the records resolve, usually within minutes.
+
+If the DNS provider does not allow a bare `CNAME` for these names, Vercel offers
+an `A` record to `76.76.21.21` as the fallback; either works for a subdomain.
 
 ### 4. Supabase
 
@@ -129,7 +136,7 @@ issue automatically once the records resolve.
 
 - **Site URL** → the **admin** domain. Auth emails (password reset) only ever
   go to admins; the public form does not authenticate anyone.
-- **Redirect URLs** → add `https://ADMIN-DOMAIN/**`.
+- **Redirect URLs** → add `https://admin.adwizersnetworks.in/**`.
 
 Nothing else changes. The database, RLS policies, and the `applicant-logos`
 bucket are environment-independent and already live.
@@ -172,9 +179,16 @@ npm run build:admin
 - Separate environment variables — the admin project's config can diverge
   without touching the public form.
 - An admin outage cannot take the entry form down, and vice versa.
-- **Admin session cookies are now scoped to the admin domain only.** The public
+- **Admin session cookies are now scoped to the admin host only.** The public
   form's origin can never hold or transmit an admin session — a real
   improvement over the single-domain setup.
+
+  This holds because Supabase sets its auth cookies **host-only** (no `Domain`
+  attribute), so `admin.adwizersnetworks.in` is the only host that receives
+  them. Worth knowing precisely, because the two hosts share the registrable
+  parent `adwizersnetworks.in`: anything that ever set
+  `Domain=.adwizersnetworks.in` on a session cookie would hand that session to
+  the public form's origin too. Don't.
 - The form deployment skips the Supabase `getUser()` round trip that used to
   run in the proxy ahead of every public page load.
 

@@ -153,13 +153,13 @@ sudo nginx -t && sudo systemctl reload nginx
 Run the app twice from the same checkout and give each process its own target:
 
 ```bash
-APP_TARGET=form  FORM_ORIGIN=https://FORM-DOMAIN ADMIN_ORIGIN=https://ADMIN-DOMAIN   PORT=3000 pm2 start npm --name awe-form  -- run start
-APP_TARGET=admin FORM_ORIGIN=https://FORM-DOMAIN ADMIN_ORIGIN=https://ADMIN-DOMAIN   PORT=3001 pm2 start npm --name awe-admin -- run start
+APP_TARGET=form  FORM_ORIGIN=https://awe.adwizersnetworks.in ADMIN_ORIGIN=https://admin.adwizersnetworks.in   PORT=3000 pm2 start npm --name awe-form  -- run start
+APP_TARGET=admin FORM_ORIGIN=https://awe.adwizersnetworks.in ADMIN_ORIGIN=https://admin.adwizersnetworks.in   PORT=3001 pm2 start npm --name awe-admin -- run start
 pm2 save
 ```
 
-Then duplicate the `server` block above: one with `server_name FORM-DOMAIN`
-proxying to `127.0.0.1:3000`, one with `server_name ADMIN-DOMAIN` proxying to
+Then duplicate the `server` block above: one with `server_name awe.adwizersnetworks.in`
+proxying to `127.0.0.1:3000`, one with `server_name admin.adwizersnetworks.in` proxying to
 `127.0.0.1:3001`, and run certbot with `-d` for both. A single `npm run build` serves both
 processes: the proxy and `robots.txt` both read `APP_TARGET` per request. (The
 only build-time-baked values are `NEXT_PUBLIC_*`, which are identical on both
