@@ -4,7 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:form": "node scripts/with-target.mjs form dev",
+    "dev:admin": "node scripts/with-target.mjs admin dev --port 3001",
     "build": "next build",
+    "build:form": "node scripts/with-target.mjs form build",
+    "build:admin": "node scripts/with-target.mjs admin build",
     "start": "next start",
     "lint": "eslint"
   },

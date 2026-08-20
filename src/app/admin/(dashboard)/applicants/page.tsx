@@ -18,6 +18,7 @@ import {
   PAGE_SIZE_TABLE,
 } from "@/lib/applicants";
 import { categoryLabel, STATUS_LABEL, type ApplicantStatus } from "@/lib/types";
+import { formUrl } from "@/lib/target";
 
 export const metadata: Metadata = {
   title: "Applicants · AWE Awards 2026",
@@ -142,7 +143,7 @@ export default async function ApplicantsPage({
                           <>
                             Submissions from the{" "}
                             <Link
-                              href="/register"
+                              href={formUrl("/register")}
                               className="underline underline-offset-2 hover:text-purple-royal"
                             >
                               registration form
@@ -230,7 +231,7 @@ export default async function ApplicantsPage({
               <>
                 Submissions from the{" "}
                 <Link
-                  href="/register"
+                  href={formUrl("/register")}
                   className="underline underline-offset-2 hover:text-purple-royal"
                 >
                   registration form

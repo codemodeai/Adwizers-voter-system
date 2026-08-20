@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { signOut } from "@/app/admin/login/actions";
+import { formUrl } from "@/lib/target";
 import { NavLink } from "./NavLink";
 
 /** Dashboard modules from Final Plan section 5. Unbuilt ones stay visible but
@@ -89,7 +90,10 @@ export function AdminShell({
 
         <footer className="border-t border-line px-5 py-4 text-[12px] text-ink-muted sm:px-7 lg:px-9">
           Phase 1 · Registration &amp; Applicants ·{" "}
-          <Link href="/register" className="underline underline-offset-2 hover:text-purple-royal">
+          <Link
+            href={formUrl("/register")}
+            className="underline underline-offset-2 hover:text-purple-royal"
+          >
             View public form
           </Link>
         </footer>

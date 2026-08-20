@@ -2,6 +2,13 @@
 
 Repo: `git@github.com:trillionnewton-commits/Adwiser-Voter-System.git`
 
+> **Currently deployed on Vercel as two projects, one per domain** — see
+> [DOMAINS.md](DOMAINS.md). This VPS walkthrough is the alternative path and
+> describes a **single** server carrying both surfaces. To split the two
+> domains here instead, run the app twice (two PM2 processes on two ports, each
+> with its own `APP_TARGET` and `FORM_ORIGIN`/`ADMIN_ORIGIN`) behind two Nginx
+> `server` blocks — see the note at the end of step 6.
+
 This app needs a **Node.js runtime**. It has four Server Action files, `proxy.ts`
 middleware, and admin pages that read auth cookies per request — so Hostinger's
 shared / Premium / Business plans (PHP + Apache) cannot run it, and there is no
@@ -140,6 +147,23 @@ sudo ln -s /etc/nginx/sites-available/awe /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl reload nginx
 ```
+
+### Splitting the two domains on one VPS
+
+Run the app twice from the same checkout and give each process its own target:
+
+```bash
+APP_TARGET=form  FORM_ORIGIN=https://FORM-DOMAIN ADMIN_ORIGIN=https://ADMIN-DOMAIN   PORT=3000 pm2 start npm --name awe-form  -- run start
+APP_TARGET=admin FORM_ORIGIN=https://FORM-DOMAIN ADMIN_ORIGIN=https://ADMIN-DOMAIN   PORT=3001 pm2 start npm --name awe-admin -- run start
+pm2 save
+```
+
+Then duplicate the `server` block above: one with `server_name FORM-DOMAIN`
+proxying to `127.0.0.1:3000`, one with `server_name ADMIN-DOMAIN` proxying to
+`127.0.0.1:3001`, and run certbot with `-d` for both. A single `npm run build` serves both
+processes: the proxy and `robots.txt` both read `APP_TARGET` per request. (The
+only build-time-baked values are `NEXT_PUBLIC_*`, which are identical on both
+targets.)
 
 ## 7. Domain and HTTPS
 
