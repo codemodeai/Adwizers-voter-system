@@ -6,7 +6,7 @@ single environment variable, `APP_TARGET`, tells each build which half of the
 app it serves.
 
 ```
-Adwiser-Voter-System (one repo, one codebase)
+Adwizers-voter-system (one repo, one codebase)
 │
 ├── Vercel project: awe-form          ├── Vercel project: awe-admin
 │     APP_TARGET=form                 │     APP_TARGET=admin
@@ -98,7 +98,8 @@ Vercel → `adwiser-voter-system` → Settings:
 
 ### 2. Create the admin project from the same repo
 
-Vercel → **Add New → Project** → import the *same* GitHub repository.
+Vercel → **Add New → Project** → import the *same* GitHub repository
+(`codemodeai/Adwizers-voter-system`).
 
 Vercel will warn that the repo is already connected to another project — that
 is expected and allowed; continue.

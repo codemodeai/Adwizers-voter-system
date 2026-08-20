@@ -1,6 +1,6 @@
 # Deploying to a Hostinger VPS
 
-Repo: `git@github.com:trillionnewton-commits/Adwiser-Voter-System.git`
+Repo: `git@github.com:codemodeai/Adwizers-voter-system.git`
 
 > **Currently deployed on Vercel as two projects, one per domain** — see
 > [DOMAINS.md](DOMAINS.md). This VPS walkthrough is the alternative path and
@@ -69,7 +69,7 @@ ssh -T git@github.com   # accept the fingerprint; "successfully authenticated" i
 
 ```bash
 cd ~
-git clone git@github.com:trillionnewton-commits/Adwiser-Voter-System.git app
+git clone git@github.com:codemodeai/Adwizers-voter-system.git app
 cd app
 npm ci
 ```
