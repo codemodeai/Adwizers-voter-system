@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { DarkShell } from "@/components/DarkShell";
+import { adminUrl } from "@/lib/target";
 
 export default function HomePage() {
   return (
@@ -51,7 +52,10 @@ export default function HomePage() {
 
       <footer className="border-t border-white/10 py-5 text-center text-[13px] text-ink-muted">
         AWE Awards 2026 · Adwizers Women Empowerment ·{" "}
-        <Link href="/admin/login" className="underline underline-offset-2 hover:text-ink">
+        <Link
+          href={adminUrl("/admin/login")}
+          className="underline underline-offset-2 hover:text-ink"
+        >
           Admin
         </Link>
       </footer>

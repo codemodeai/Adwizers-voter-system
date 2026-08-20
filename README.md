@@ -38,6 +38,9 @@ Fill in from **Supabase Dashboard → Project Settings → API**:
 
 `SUPABASE_SECRET_KEY` must never gain a `NEXT_PUBLIC_` prefix; it bypasses RLS.
 
+`APP_TARGET`, `FORM_ORIGIN`, and `ADMIN_ORIGIN` control the two-domain split and
+are **deliberately left unset locally** — see [DOMAINS.md](DOMAINS.md).
+
 ### 2. Database
 
 Run [`supabase/migrations/20260819000001_init_applicants.sql`](supabase/migrations/20260819000001_init_applicants.sql)
@@ -60,19 +63,36 @@ requires a matching row in `public.admins`. This script writes both.
 npm run dev
 ```
 
-| Route | What it is |
-| --- | --- |
-| `/register` | Public Form 1 |
-| `/register/thank-you` | Post-submit confirmation |
-| `/admin/login` | Admin sign in |
-| `/admin/applicants` | Applicants list — search, filter, paginate |
-| `/admin/applicants/[id]` | Review & edit a submission |
+| Route | Surface | What it is |
+| --- | --- | --- |
+| `/` | form | Landing page |
+| `/register` | form | Public Form 1 |
+| `/register/thank-you` | form | Post-submit confirmation |
+| `/admin/login` | admin | Admin sign in |
+| `/admin/applicants` | admin | Applicants list — search, filter, paginate |
+| `/admin/applicants/[id]` | admin | Review & edit a submission |
+
+`npm run dev` serves both surfaces on one port, which is how local development
+normally runs. To drive the two-domain split locally instead:
+
+```bash
+npm run dev:form     # APP_TARGET=form  → localhost:3000
+npm run dev:admin    # APP_TARGET=admin → localhost:3001
+```
+
+Next 16 refuses two dev servers from one directory, so run these one at a time
+unless you have a second checkout.
 
 ---
 
 ## Deploying
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for the full Hostinger VPS walkthrough
+The form and the dashboard run on **two domains as two Vercel projects built
+from this one repo**, selected by an `APP_TARGET` environment variable.
+[DOMAINS.md](DOMAINS.md) is the setup guide — env vars, project creation, DNS,
+Supabase auth URLs, and exactly how off-surface requests are routed.
+
+[DEPLOYMENT.md](DEPLOYMENT.md) covers the alternative Hostinger VPS path
 (Node 22 + PM2 + Nginx + Let's Encrypt).
 
 This app **requires a Node.js runtime** — Server Actions, `proxy.ts` middleware,
