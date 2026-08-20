@@ -1,7 +1,12 @@
 /**
- * Creates the first dashboard admin.
+ * Creates a dashboard admin.
  *
+ *   node scripts/create-admin.mjs AWE.adwizers "AWE@#1ads" "AWE Team"
  *   node scripts/create-admin.mjs you@example.com "StrongPassword123" "Your Name"
+ *
+ * The first argument is an admin ID. A bare ID is resolved onto the ID domain
+ * exactly as the login form does, so whatever is passed here is what gets typed
+ * at /admin/login. An argument containing "@" is used as-is.
  *
  * Signing up through Supabase Auth is not enough on its own -- the dashboard
  * also requires a row in `public.admins`, which this script writes. Run it
@@ -26,14 +31,20 @@ function loadEnv(file = ".env.local") {
 
 loadEnv();
 
-const [email, password, fullName] = process.argv.slice(2);
+const [identifier, password, fullName] = process.argv.slice(2);
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const secret = process.env.SUPABASE_SECRET_KEY;
 
-if (!email || !password) {
-  console.error('Usage: node scripts/create-admin.mjs <email> <password> ["Full Name"]');
+if (!identifier || !password) {
+  console.error('Usage: node scripts/create-admin.mjs <admin-id> <password> ["Full Name"]');
   process.exit(1);
 }
+
+// Kept in step with resolveAdminEmail() in src/lib/adminIdentity.ts. This file
+// is plain Node with no build step, so it cannot import the TypeScript module.
+const ADMIN_ID_DOMAIN = "adwizersnetworks.in";
+const id = identifier.trim().toLowerCase();
+const email = id.includes("@") ? id : `${id}@${ADMIN_ID_DOMAIN}`;
 if (!url || !secret) {
   console.error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SECRET_KEY in .env.local");
   process.exit(1);
@@ -75,4 +86,5 @@ if (insertError) {
   process.exit(1);
 }
 
-console.log(`✓ ${email} can now sign in at /admin/login`);
+console.log(`✓ Sign in at /admin/login with ID: ${identifier}`);
+console.log(`  (stored as ${email})`);

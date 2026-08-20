@@ -34,13 +34,18 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
         </div>
       )}
 
-      <Field label="Email" htmlFor="email" required>
+      <Field label="Admin ID" htmlFor="email" required>
         <input
           id="email"
           name="email"
-          type="email"
+          // Deliberately not type="email": the field accepts a bare ID such as
+          // AWE.adwizers, which the browser would reject as an invalid address.
+          type="text"
           defaultValue={state.email}
-          autoComplete="email"
+          autoComplete="username"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           required
           className={inputClass}
         />
