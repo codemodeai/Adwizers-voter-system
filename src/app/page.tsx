@@ -2,7 +2,6 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { DarkShell } from "@/components/DarkShell";
-import { adminUrl } from "@/lib/target";
 
 export default function HomePage() {
   return (
@@ -50,14 +49,11 @@ export default function HomePage() {
         </p>
       </main>
 
+      {/* No link to the dashboard here. It lives on its own domain, and a
+       * public signpost to the sign-in page invites traffic that has no
+       * business finding it. Admins go there directly. */}
       <footer className="border-t border-white/10 py-5 text-center text-[13px] text-ink-muted">
-        AWE Awards 2026 · Adwizers Women Empowerment ·{" "}
-        <Link
-          href={adminUrl("/admin/login")}
-          className="underline underline-offset-2 hover:text-ink"
-        >
-          Admin
-        </Link>
+        AWE Awards 2026 · Adwizers Women Empowerment
       </footer>
     </DarkShell>
   );
