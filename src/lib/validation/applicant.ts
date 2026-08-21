@@ -78,7 +78,7 @@ export const applicantFormSchema = z
     // Q14-Q16
     nominationDeclaration: acceptedCheckbox("Please accept the nomination declaration"),
     termsAccepted: acceptedCheckbox("Please accept the terms & conditions"),
-    communicationConsent: z.coerce.boolean().default(false),
+    communicationConsent: acceptedCheckbox("Please accept the communication consent"),
 
     /** Slug of the chosen category -- lets the schema enforce the Q6 follow-up. */
     categorySlug: trimmed.optional(),

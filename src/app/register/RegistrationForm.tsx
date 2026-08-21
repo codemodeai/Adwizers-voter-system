@@ -156,6 +156,8 @@ function validateStep(index: number, fd: FormData, isOther: boolean): Errors {
       errors.nominationDeclaration = "Please accept the nomination declaration";
     if (fd.get("termsAccepted") !== "on")
       errors.termsAccepted = "Please accept the terms & conditions";
+    if (fd.get("communicationConsent") !== "on")
+      errors.communicationConsent = "Please accept the communication consent";
   }
 
   return errors;
@@ -637,6 +639,8 @@ export function RegistrationForm({ categories }: { categories: Category[] }) {
                 <CheckboxRow
                   name="communicationConsent"
                   title="Communication Consent"
+                  required
+                  error={errors.communicationConsent}
                   defaultChecked={v.communicationConsent === "on"}
                 >
                   I agree to receive updates regarding my nomination, public voting and Adwizers

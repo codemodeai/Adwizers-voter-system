@@ -56,7 +56,9 @@ export const stallFormSchema = z.object({
   termsAccepted: z.coerce
     .boolean()
     .refine((v) => v === true, "Please accept the terms & conditions"),
-  communicationConsent: z.coerce.boolean().default(false),
+  communicationConsent: z.coerce
+    .boolean()
+    .refine((v) => v === true, "Please accept the communication consent"),
 });
 
 export type StallFormValues = z.input<typeof stallFormSchema>;

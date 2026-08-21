@@ -132,8 +132,11 @@ function validateStep(index: number, fd: FormData): Errors {
     errors.feeAgreed = `Please confirm you agree to pay the ${STALL_FEE_DISPLAY} stall fee`;
   }
 
-  if (index === 5 && fd.get("termsAccepted") !== "on") {
-    errors.termsAccepted = "Please accept the terms & conditions";
+  if (index === 5) {
+    if (fd.get("termsAccepted") !== "on")
+      errors.termsAccepted = "Please accept the terms & conditions";
+    if (fd.get("communicationConsent") !== "on")
+      errors.communicationConsent = "Please accept the communication consent";
   }
 
   return errors;
@@ -557,6 +560,8 @@ export function StallForm() {
                 <CheckboxRow
                   name="communicationConsent"
                   title="Communication Consent"
+                  required
+                  error={errors.communicationConsent}
                   defaultChecked={v.communicationConsent === "on"}
                 >
                   I agree to receive updates about my stall booking and the Adwizers Business
