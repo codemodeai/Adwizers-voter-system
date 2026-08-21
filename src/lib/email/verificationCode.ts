@@ -1,23 +1,20 @@
 import "server-only";
 
 import { sendEmail, type SendResult } from "@/lib/email/resend";
+import { sendViaSes, sesConfigured } from "@/lib/email/ses";
 
 /**
  * The voter's one-time code (Final Plan section 8).
  *
- * A deliberate deviation, recorded here rather than buried: the plan specifies
- * Amazon SES for these, on the grounds that a live voting window could mean
- * tens of thousands of codes and SES's metered rate fits that better than
- * Resend's tiers. No AWS account exists yet, and Resend is already configured
- * and verified on the sending domain -- so codes go out through Resend, behind
- * this one function.
+ * Sent through Amazon SES, which is the plan's choice for these: codes scale
+ * with visitors during a live voting window, potentially tens of thousands,
+ * where SES's metered rate fits and Resend's 100-a-day free tier does not.
+ * Nominee notifications stay on Resend -- low volume, domain already verified
+ * there. That two-provider split is section 8's own reasoning.
  *
- * The cost of that is a real cap: Resend's free tier allows 100 emails a day.
- * Because verification is once per *session* rather than once per vote, that
- * covers roughly a hundred distinct voters a day, which is fine for a soft
- * launch and not for a peak. Swapping in SES means changing `deliver` below and
- * nothing else -- the callers, the template and the session logic are unaware
- * of which provider ran.
+ * Resend remains the fallback for when SES is not configured, so voting is
+ * never blocked by a half-finished AWS setup. Which provider ran is invisible
+ * to the callers, the template and the session logic.
  */
 
 /** Six digits, uniformly distributed. `Math.random()` is not used: this is the
@@ -89,8 +86,12 @@ export async function sendVerificationCode(params: {
 }
 
 /**
- * The provider seam. Everything above is provider-agnostic; swapping Resend for
- * SES is a change to this function alone.
+ * The provider seam.
+ *
+ * SES when it is configured, Resend otherwise. The fallback is not a nicety:
+ * SES accounts start in a sandbox that can only email verified addresses, so
+ * there is a real window where SES is half-set-up, and codes silently failing
+ * during it would look like the ballot being broken.
  */
 async function deliver(email: {
   to: string;
@@ -98,5 +99,13 @@ async function deliver(email: {
   html: string;
   text: string;
 }): Promise<SendResult> {
+  if (sesConfigured()) {
+    const result = await sendViaSes(email);
+    // A hard SES failure is reported as-is rather than quietly retried through
+    // Resend: once SES is configured it is the path that has to work, and
+    // masking its errors would hide exactly the setup problems worth fixing.
+    if (result.status !== "skipped") return result;
+  }
+
   return sendEmail(email);
 }

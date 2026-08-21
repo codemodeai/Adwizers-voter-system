@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { VotingRulesForm } from "@/components/admin/VotingRulesForm";
 import { resendConfigured, usingTestSender } from "@/lib/email/resend";
+import { sesConfigured, sesRegion } from "@/lib/email/ses";
 import { turnstileConfigured } from "@/lib/turnstile";
 import { ADMIN_ORIGIN, FORM_ORIGIN } from "@/lib/target";
 import { getVotingRules, getVotingSettings, VOTING_STATUS_LABEL } from "@/lib/voting";
@@ -124,6 +125,16 @@ export default async function SettingsPage() {
             value={ADMIN_ORIGIN ? "Set" : "Not set"}
             ok={Boolean(ADMIN_ORIGIN)}
             note={ADMIN_ORIGIN ?? undefined}
+          />
+          <Row
+            label="Voter codes (Amazon SES)"
+            value={sesConfigured() ? `SES · ${sesRegion()}` : "Falling back to Resend"}
+            ok={sesConfigured()}
+            note={
+              sesConfigured()
+                ? "Verification codes send through SES."
+                : "SES_REGION, SES_ACCESS_KEY_ID, SES_SECRET_ACCESS_KEY and SES_FROM are unset on the form deployment, so codes use Resend — capped at 100 a day on the free tier."
+            }
           />
           <Row
             label="Captcha (Cloudflare Turnstile)"
