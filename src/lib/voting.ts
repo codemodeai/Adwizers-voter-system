@@ -3,105 +3,85 @@ import "server-only";
 import { createPublicClient } from "@/lib/supabase/public";
 import { createClient } from "@/lib/supabase/server";
 
-export type VotingSettings = {
-  starts_at: string | null;
-  ends_at: string | null;
-  is_paused: boolean;
+/**
+ * The voting switch. Manual throughout -- nothing here moves on a timer, so
+ * voting opens and stops only when an admin says so.
+ */
+export type VotingStatus = "not_started" | "open" | "paused" | "stopped";
+
+export const VOTING_STATUSES: VotingStatus[] = ["not_started", "open", "paused", "stopped"];
+
+export const VOTING_STATUS_LABEL: Record<VotingStatus, string> = {
+  not_started: "Not started",
+  open: "Voting open",
+  paused: "Voting paused",
+  stopped: "Voting stopped",
 };
+
+export type VotingSettings = { status: VotingStatus };
 
 /**
- * Where voting stands right now.
+ * A single category's effective state, which is the global switch narrowed by
+ * that category's own two flags.
  *
- * Derived, never stored. Section 10's "voting auto-locks the moment the end
- * time hits" is satisfied by computing this on every read: there is no job to
- * fire, miss, or retry, and a window that expired overnight is already closed
- * the first time anyone looks.
+ * `hidden` and `paused` are deliberately different things: hiding closes the
+ * page altogether, pausing leaves the cards up and only stops votes. Both are
+ * only meaningful while voting is globally open -- once it is stopped, every
+ * category is stopped regardless.
  */
-export type VotingState =
-  | "unscheduled"
-  | "scheduled"
-  | "open"
-  | "paused"
-  | "closed";
+export type CategoryVotingState = VotingStatus | "hidden" | "category_paused";
 
-export const VOTING_STATE_LABEL: Record<VotingState, string> = {
-  unscheduled: "Not scheduled",
-  scheduled: "Opens later",
-  open: "Voting open",
-  paused: "Paused",
-  closed: "Voting closed",
+export const CATEGORY_STATE_LABEL: Record<CategoryVotingState, string> = {
+  ...VOTING_STATUS_LABEL,
+  hidden: "Page hidden",
+  category_paused: "Paused for this category",
 };
 
-export function votingState(settings: VotingSettings, now = new Date()): VotingState {
-  const { starts_at, ends_at, is_paused } = settings;
-
-  if (!starts_at || !ends_at) return "unscheduled";
-
-  const start = new Date(starts_at);
-  const end = new Date(ends_at);
-
-  // Closed wins over paused: once the window has passed, "paused" would imply
-  // it could still be resumed, which it cannot without moving the dates.
-  if (now >= end) return "closed";
-  if (now < start) return "scheduled";
-  if (is_paused) return "paused";
-  return "open";
+export function categoryVotingState(
+  status: VotingStatus,
+  category: { is_active: boolean; voting_paused: boolean },
+): CategoryVotingState {
+  if (!category.is_active) return "hidden";
+  if (status !== "open") return status;
+  return category.voting_paused ? "category_paused" : "open";
 }
 
-/** Whether a vote may be cast this instant. The single question the ballot
- *  will ask; everything else here is presentation. */
-export function votingIsOpen(settings: VotingSettings, now = new Date()): boolean {
-  return votingState(settings, now) === "open";
+/** The single question the ballot will ask, once it exists. */
+export function canVoteIn(
+  status: VotingStatus,
+  category: { is_active: boolean; voting_paused: boolean },
+): boolean {
+  return categoryVotingState(status, category) === "open";
 }
 
-const EMPTY: VotingSettings = { starts_at: null, ends_at: null, is_paused: false };
+const DEFAULT: VotingSettings = { status: "not_started" };
 
 /** Admin read, through the signed-in admin's session. */
 export async function getVotingSettings(): Promise<VotingSettings> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("voting_settings")
-    .select("starts_at, ends_at, is_paused")
+    .select("status")
     .eq("id", 1)
     .maybeSingle();
 
-  return (data as VotingSettings | null) ?? EMPTY;
+  return (data as VotingSettings | null) ?? DEFAULT;
 }
 
 /**
  * Public read for the category voting page.
  *
- * Falls back to "unscheduled" rather than throwing when the row or table is
- * missing, so a voting page never breaks over a settings read -- it just
- * reports that voting has not been scheduled.
+ * Falls back to "not started" rather than throwing when the row or table is
+ * missing, so a voting page never breaks over a settings read -- it reports
+ * that voting has not opened, which is the safe direction to be wrong in.
  */
 export async function getPublicVotingSettings(): Promise<VotingSettings> {
   const supabase = createPublicClient();
   const { data } = await supabase
     .from("voting_settings")
-    .select("starts_at, ends_at, is_paused")
+    .select("status")
     .eq("id", 1)
     .maybeSingle();
 
-  return (data as VotingSettings | null) ?? EMPTY;
-}
-
-/**
- * Dates are shown in IST everywhere, labelled as such.
- *
- * The client and every applicant are in India, and a voting deadline that
- * silently renders in the reader's own zone is the kind of thing that gets
- * someone locked out an hour early.
- */
-export function formatIst(iso: string | null): string | null {
-  if (!iso) return null;
-  return new Date(iso).toLocaleString("en-IN", {
-    timeZone: "Asia/Kolkata",
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
+  return (data as VotingSettings | null) ?? DEFAULT;
 }

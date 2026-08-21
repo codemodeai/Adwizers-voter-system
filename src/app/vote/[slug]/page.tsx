@@ -5,7 +5,11 @@ import { notFound } from "next/navigation";
 import { DarkShell } from "@/components/DarkShell";
 import { NomineeCard } from "@/components/vote/NomineeCard";
 import { publicCategoryPage, signNomineePhotos } from "@/lib/nominees";
-import { formatIst, getPublicVotingSettings, votingState, type VotingState } from "@/lib/voting";
+import {
+  categoryVotingState,
+  getPublicVotingSettings,
+  type CategoryVotingState,
+} from "@/lib/voting";
 
 /**
  * The category voting page (Final Plan section 6) -- one shareable link per
@@ -42,11 +46,13 @@ export default async function CategoryVotePage({ params }: PageProps<"/vote/[slu
 
   const photoUrls = await signNomineePhotos(nominees.map((n) => n.photo_path));
 
-  // Derived from the clock on every request, so a window that closed a minute
-  // ago is closed here without anything having had to run.
-  const state = votingState(settings);
-  const opens = formatIst(settings.starts_at);
-  const closes = formatIst(settings.ends_at);
+  // The global switch, narrowed by this category's own pause. Read fresh on
+  // every request, so flipping either one in the dashboard shows up here on the
+  // next load with nothing to invalidate.
+  const state = categoryVotingState(settings.status, {
+    is_active: true,
+    voting_paused: category.voting_paused,
+  });
 
   return (
     <DarkShell>
@@ -69,7 +75,7 @@ export default async function CategoryVotePage({ params }: PageProps<"/vote/[slu
           * the ballot is not built yet. Both facts get said, because a
           * disabled checkbox on its own would leave a voter unsure whether
           * their tap counted. */}
-        <VotingNotice state={state} opens={opens} closes={closes} />
+        <VotingNotice state={state} />
 
         {nominees.length > 0 ? (
           <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -102,47 +108,44 @@ export default async function CategoryVotePage({ params }: PageProps<"/vote/[slu
 }
 
 /**
- * What a visitor is told about voting, from the state Voting Control derives
- * (Final Plan section 10).
+ * What a visitor is told about voting, from the switches the dashboard sets
+ * (Final Plan section 10, manual variant).
  *
  * Every branch is careful never to imply a vote can be cast, because none can
- * yet -- the ballot arrives with the voter portal. The schedule is real, so it
- * is worth showing; the ability to vote is not, so it is never claimed.
+ * yet -- the ballot arrives with the voter portal. The state is real, so it is
+ * worth showing; the ability to vote is not, so it is never claimed.
  */
-function VotingNotice({
-  state,
-  opens,
-  closes,
-}: {
-  state: VotingState;
-  opens: string | null;
-  closes: string | null;
-}) {
-  const copy: Record<VotingState, { icon: string; title: string; body: string }> = {
-    unscheduled: {
+function VotingNotice({ state }: { state: CategoryVotingState }) {
+  const copy: Record<CategoryVotingState, { icon: string; title: string; body: string }> = {
+    not_started: {
       icon: "\u{1F5F3}\u{FE0F}",
       title: "Voting has not opened yet.",
       body: "These are the nominees as they will appear. Save this page \u2014 when voting opens you will pick everyone you want to vote for here and submit once.",
     },
-    scheduled: {
-      icon: "\u{1F4C5}",
-      title: `Voting opens ${opens} IST.`,
-      body: `It closes ${closes} IST. Save this page \u2014 you will pick everyone you want to vote for here and submit once.`,
-    },
     open: {
       icon: "\u{1F5F3}\u{FE0F}",
       title: "Voting is open.",
-      body: `The ballot goes live on this page shortly, and voting closes ${closes} IST. Nothing you tap here is counted yet.`,
+      body: "The ballot goes live on this page shortly. Nothing you tap here is counted yet.",
     },
     paused: {
       icon: "\u{23F8}\u{FE0F}",
       title: "Voting is paused.",
       body: "The organisers have paused voting for the moment. Check back shortly \u2014 the nominees below are unchanged.",
     },
-    closed: {
+    category_paused: {
+      icon: "\u{23F8}\u{FE0F}",
+      title: "Voting is paused for this category.",
+      body: "Other categories are still running. Check back shortly \u2014 the nominees below are unchanged.",
+    },
+    stopped: {
       icon: "\u{1F512}",
       title: "Voting has closed.",
-      body: `Voting closed ${closes} IST. Winners are announced by the organisers once the results are confirmed.`,
+      body: "Winners are announced by the organisers once the results are confirmed.",
+    },
+    hidden: {
+      icon: "\u{1F512}",
+      title: "This page is closed.",
+      body: "Voting is not running for this category.",
     },
   };
 

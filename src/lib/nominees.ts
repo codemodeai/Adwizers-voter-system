@@ -70,6 +70,9 @@ export async function getNominee(id: string): Promise<NomineeWithCategory | null
 }
 
 export type CategoryWithNominees = Category & {
+  /** Per-category voting pause. Defaulted rather than required, so this keeps
+   *  working against a database where the column has not been added yet. */
+  voting_paused: boolean;
   nominees: NomineeWithCategory[];
   publishedCount: number;
 };
@@ -84,14 +87,14 @@ export async function listCategoriesWithNominees(): Promise<CategoryWithNominees
   const supabase = await createClient();
 
   const [{ data: categoryRows }, { nominees }] = await Promise.all([
-    supabase
-      .from("categories")
-      .select("id, name, slug, sort_order, is_active")
-      .order("sort_order", { ascending: true }),
+    // `*` rather than a column list on purpose: it cannot fail against a
+    // database that predates a column this code reads, which keeps the screen
+    // rendering through the window between a deploy and its migration.
+    supabase.from("categories").select("*").order("sort_order", { ascending: true }),
     listNominees(),
   ]);
 
-  const categories = (categoryRows ?? []) as Category[];
+  const categories = (categoryRows ?? []) as (Category & { voting_paused?: boolean })[];
   const byCategory = new Map<number, NomineeWithCategory[]>();
   for (const nominee of nominees) {
     const bucket = byCategory.get(nominee.category_id);
@@ -103,6 +106,7 @@ export async function listCategoriesWithNominees(): Promise<CategoryWithNominees
     const own = byCategory.get(category.id) ?? [];
     return {
       ...category,
+      voting_paused: category.voting_paused ?? false,
       nominees: own,
       publishedCount: own.filter((n) => n.is_published).length,
     };
@@ -148,17 +152,23 @@ export type PublicNominee = {
  * row filter is the database's, not this function's.
  */
 export async function publicCategoryPage(slug: string): Promise<{
-  category: Pick<Category, "id" | "name" | "slug"> | null;
+  category: (Pick<Category, "id" | "name" | "slug"> & { voting_paused: boolean }) | null;
   nominees: PublicNominee[];
 }> {
   const supabase = createPublicClient();
 
-  const { data: category } = await supabase
+  // `*` for the same reason as the admin listing: it cannot fail against a
+  // database that predates a column this code reads.
+  const { data: row } = await supabase
     .from("categories")
-    .select("id, name, slug")
+    .select("*")
     .eq("slug", slug)
     .eq("is_active", true)
     .maybeSingle();
+
+  const category = row as
+    | (Pick<Category, "id" | "name" | "slug"> & { voting_paused?: boolean })
+    | null;
 
   if (!category) return { category: null, nominees: [] };
 
@@ -170,7 +180,15 @@ export async function publicCategoryPage(slug: string): Promise<{
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: true });
 
-  return { category, nominees: (data ?? []) as PublicNominee[] };
+  return {
+    category: {
+      id: category.id,
+      name: category.name,
+      slug: category.slug,
+      voting_paused: category.voting_paused ?? false,
+    },
+    nominees: (data ?? []) as PublicNominee[],
+  };
 }
 
 /**

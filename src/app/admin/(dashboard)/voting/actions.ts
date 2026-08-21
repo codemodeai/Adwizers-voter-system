@@ -3,94 +3,94 @@
 import { revalidatePath } from "next/cache";
 
 import { requireAdmin } from "@/lib/auth";
-import type { VotingFormState } from "./state";
+import type { VotingStatus } from "@/lib/voting";
 
 export type VotingResult = { ok: boolean; error?: string };
 
-/**
- * Every voting page plus the two admin screens that report the state.
- *
- * The category pages are `force-dynamic`, so they pick the new state up on the
- * next request regardless -- these calls are what make the dashboard itself
- * agree immediately.
- */
+const VALID: VotingStatus[] = ["not_started", "open", "paused", "stopped"];
+
+/** Every screen that reports voting state, plus every public category page. */
 function revalidateVoting() {
   revalidatePath("/admin/voting");
   revalidatePath("/admin/categories");
   revalidatePath("/vote", "layout");
 }
 
-function isoOrNull(formData: FormData, key: string): string | null | undefined {
-  const raw = String(formData.get(key) ?? "").trim();
-  if (raw === "") return null;
-
-  const parsed = new Date(raw);
-  // `undefined` distinguishes "the browser sent something unparseable" from
-  // "the admin deliberately cleared this field".
-  return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
-}
-
 /**
- * Sets the voting window (Final Plan section 10).
+ * Moves the global voting switch (Final Plan section 10, manual variant).
  *
- * The form posts ISO strings computed in the admin's own browser, because a
- * bare `datetime-local` value carries no offset -- the server would have to
- * guess a timezone, and guessing wrong moves a deadline by hours.
+ * Nothing changes this on a timer: voting opens when an admin opens it and
+ * ends when an admin stops it. Stopping is reversible -- no vote data is
+ * touched by it -- but the UI asks first, because reopening a vote that has
+ * been announced as closed is a decision, not a click.
  */
-export async function setVotingWindow(
-  _prev: VotingFormState,
-  formData: FormData,
-): Promise<VotingFormState> {
+export async function setVotingStatus(status: VotingStatus): Promise<VotingResult> {
   const { supabase, user } = await requireAdmin();
 
-  const startsAt = isoOrNull(formData, "starts_at");
-  const endsAt = isoOrNull(formData, "ends_at");
-
-  if (startsAt === undefined || endsAt === undefined) {
-    return { status: "error", message: "That date could not be read. Please re-enter it." };
-  }
-
-  // Half a window is not a schedule -- it would leave voting either never
-  // opening or never closing, and the second one is the dangerous direction.
-  if ((startsAt && !endsAt) || (!startsAt && endsAt)) {
-    return {
-      status: "error",
-      message: "Set both a start and an end. A window with only one end never closes.",
-    };
-  }
-
-  if (startsAt && endsAt && new Date(endsAt) <= new Date(startsAt)) {
-    return { status: "error", message: "Voting must end after it starts." };
-  }
+  if (!VALID.includes(status)) return { ok: false, error: "Unknown voting status." };
 
   const { error } = await supabase
     .from("voting_settings")
-    .update({ starts_at: startsAt, ends_at: endsAt, updated_by: user.id })
+    .update({ status, updated_by: user.id })
     .eq("id", 1);
 
-  if (error) return { status: "error", message: `Could not save: ${error.message}` };
+  if (error) return { ok: false, error: error.message };
 
   revalidateVoting();
-
-  return {
-    status: "saved",
-    message: startsAt ? "Voting window saved." : "Voting window cleared.",
-  };
+  return { ok: true };
 }
 
 /**
- * Pause / resume, independent of the schedule (section 10).
+ * Pauses or resumes one category while the rest keep running.
  *
- * Pausing deliberately does not touch the dates, so resuming returns to exactly
- * the window that was already set rather than to a shifted one.
+ * Separate from hiding the category: this leaves the page and its nominee
+ * cards up and only stops votes being cast, which is what you want when one
+ * category needs looking at and the others should carry on.
+ *
+ * It has no effect unless global voting is open -- that is a property of how
+ * the state is derived, not a rule enforced here, so a category can be pre-
+ * paused before voting starts and will simply stay paused when it does.
  */
-export async function setVotingPaused(paused: boolean): Promise<VotingResult> {
-  const { supabase, user } = await requireAdmin();
+export async function setCategoryVotingPaused(
+  id: number,
+  paused: boolean,
+): Promise<VotingResult> {
+  const { supabase } = await requireAdmin();
+
+  const { data: category } = await supabase
+    .from("categories")
+    .select("slug")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!category) return { ok: false, error: "Category not found." };
 
   const { error } = await supabase
-    .from("voting_settings")
-    .update({ is_paused: paused, updated_by: user.id })
-    .eq("id", 1);
+    .from("categories")
+    .update({ voting_paused: paused })
+    .eq("id", id);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidateVoting();
+  revalidatePath(`/vote/${category.slug}`);
+  return { ok: true };
+}
+
+/**
+ * Pauses or resumes every category at once.
+ *
+ * The per-category switches are what make this necessary: after holding four
+ * categories individually, "resume everything" should not mean fourteen
+ * clicks.
+ */
+export async function setAllCategoriesPaused(paused: boolean): Promise<VotingResult> {
+  const { supabase } = await requireAdmin();
+
+  const { error } = await supabase
+    .from("categories")
+    .update({ voting_paused: paused })
+    .neq("id", 0); // PostgREST requires a filter on bulk updates.
 
   if (error) return { ok: false, error: error.message };
 
