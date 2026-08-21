@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { DarkShell } from "@/components/DarkShell";
 import { NomineeCard } from "@/components/vote/NomineeCard";
 import { publicCategoryPage, signNomineePhotos } from "@/lib/nominees";
+import { formatIst, getPublicVotingSettings, votingState, type VotingState } from "@/lib/voting";
 
 /**
  * The category voting page (Final Plan section 6) -- one shareable link per
@@ -32,11 +33,20 @@ export async function generateMetadata({
 
 export default async function CategoryVotePage({ params }: PageProps<"/vote/[slug]">) {
   const { slug } = await params;
-  const { category, nominees } = await publicCategoryPage(slug);
+  const [{ category, nominees }, settings] = await Promise.all([
+    publicCategoryPage(slug),
+    getPublicVotingSettings(),
+  ]);
 
   if (!category) notFound();
 
   const photoUrls = await signNomineePhotos(nominees.map((n) => n.photo_path));
+
+  // Derived from the clock on every request, so a window that closed a minute
+  // ago is closed here without anything having had to run.
+  const state = votingState(settings);
+  const opens = formatIst(settings.starts_at);
+  const closes = formatIst(settings.ends_at);
 
   return (
     <DarkShell>
@@ -55,22 +65,11 @@ export default async function CategoryVotePage({ params }: PageProps<"/vote/[slu
           </p>
         </div>
 
-        {/* Voting itself is the next phase. Saying so plainly is the honest
-          * version of a disabled Vote button -- the cards are final, the ballot
-          * is not open, and nobody should think their tap was counted. */}
-        <div
-          className="mx-auto mt-6 flex max-w-lg items-start gap-3 rounded-xl border border-gold/30
-                     bg-gold/10 px-4 py-3.5 text-left"
-        >
-          <span aria-hidden="true" className="mt-0.5 text-base">
-            🗳️
-          </span>
-          <p className="text-[13px] leading-relaxed text-ink">
-            <strong className="font-semibold text-heading">Voting has not opened yet.</strong> These
-            are the nominees as they will appear. Save this page — when voting opens you will pick
-            everyone you want to vote for here and submit once.
-          </p>
-        </div>
+        {/* The schedule is real -- an admin sets it in Voting Control -- but
+          * the ballot is not built yet. Both facts get said, because a
+          * disabled checkbox on its own would leave a voter unsure whether
+          * their tap counted. */}
+        <VotingNotice state={state} opens={opens} closes={closes} />
 
         {nominees.length > 0 ? (
           <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -99,5 +98,67 @@ export default async function CategoryVotePage({ params }: PageProps<"/vote/[slu
         </p>
       </main>
     </DarkShell>
+  );
+}
+
+/**
+ * What a visitor is told about voting, from the state Voting Control derives
+ * (Final Plan section 10).
+ *
+ * Every branch is careful never to imply a vote can be cast, because none can
+ * yet -- the ballot arrives with the voter portal. The schedule is real, so it
+ * is worth showing; the ability to vote is not, so it is never claimed.
+ */
+function VotingNotice({
+  state,
+  opens,
+  closes,
+}: {
+  state: VotingState;
+  opens: string | null;
+  closes: string | null;
+}) {
+  const copy: Record<VotingState, { icon: string; title: string; body: string }> = {
+    unscheduled: {
+      icon: "\u{1F5F3}\u{FE0F}",
+      title: "Voting has not opened yet.",
+      body: "These are the nominees as they will appear. Save this page \u2014 when voting opens you will pick everyone you want to vote for here and submit once.",
+    },
+    scheduled: {
+      icon: "\u{1F4C5}",
+      title: `Voting opens ${opens} IST.`,
+      body: `It closes ${closes} IST. Save this page \u2014 you will pick everyone you want to vote for here and submit once.`,
+    },
+    open: {
+      icon: "\u{1F5F3}\u{FE0F}",
+      title: "Voting is open.",
+      body: `The ballot goes live on this page shortly, and voting closes ${closes} IST. Nothing you tap here is counted yet.`,
+    },
+    paused: {
+      icon: "\u{23F8}\u{FE0F}",
+      title: "Voting is paused.",
+      body: "The organisers have paused voting for the moment. Check back shortly \u2014 the nominees below are unchanged.",
+    },
+    closed: {
+      icon: "\u{1F512}",
+      title: "Voting has closed.",
+      body: `Voting closed ${closes} IST. Winners are announced by the organisers once the results are confirmed.`,
+    },
+  };
+
+  const { icon, title, body } = copy[state];
+
+  return (
+    <div
+      className="mx-auto mt-6 flex max-w-lg items-start gap-3 rounded-xl border border-gold/30
+                 bg-gold/10 px-4 py-3.5 text-left"
+    >
+      <span aria-hidden="true" className="mt-0.5 text-base">
+        {icon}
+      </span>
+      <p className="text-[13px] leading-relaxed text-ink">
+        <strong className="font-semibold text-heading">{title}</strong> {body}
+      </p>
+    </div>
   );
 }

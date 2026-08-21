@@ -11,7 +11,7 @@ const MODULES = [
   { href: "/admin/applicants", label: "Applicants", ready: true },
   { href: "/admin/nominees", label: "Nominees", ready: true },
   { href: "/admin/categories", label: "Categories", ready: true },
-  { href: "/admin/voting", label: "Voting Control", ready: false },
+  { href: "/admin/voting", label: "Voting Control", ready: true },
   { href: "/admin/analytics", label: "Analytics", ready: false },
   { href: "/admin/results", label: "Results / Winners", ready: false },
   { href: "/admin/export", label: "Export", ready: false },
