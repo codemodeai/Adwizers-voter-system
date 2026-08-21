@@ -19,23 +19,22 @@ export type CategoryCardNominee = {
   id: string;
   display_name: string;
   business_name: string;
+  area_location: string | null;
   is_published: boolean;
   photo_path: string | null;
 };
 
 /**
- * One category as a card (Final Plan section 5).
+ * One category as a full-width box (Final Plan section 5).
  *
- * The card is built around the link, because that is what this screen is for:
- * section 6 makes the per-category link the thing that actually gets shared, so
- * it gets the largest tap target on the card and everything else arranges
- * around it. The whole link block copies on click -- on the phone the client
- * uses, aiming at a small "Copy" word beside a long URL is the difference
- * between this screen working and not.
+ * The category is the container and the nominees are cards inside it, because
+ * that is the actual structure of the thing: section 6 says a nominee has no
+ * link of her own and exists only as a card on her category's page. The screen
+ * mirrors that -- one box per shared link, holding the cards that link leads
+ * to, so what an admin sees here is what a voter will see there.
  *
- * The URL is split across two lines, domain above path. That is what keeps a
- * 50-character link inside a card without truncating it into uselessness or
- * pushing a horizontal scrollbar across the grid.
+ * The link sits in the box header rather than beside each nominee, for the same
+ * reason: it belongs to the category, never to a person.
  */
 export function CategoryCard({
   id,
@@ -66,118 +65,178 @@ export function CategoryCard({
 
   return (
     <li
-      className={`flex flex-col overflow-hidden rounded-2xl border bg-surface transition-colors ${
-        isActive ? "border-line hover:border-line-strong" : "border-dashed border-line-strong"
+      className={`overflow-hidden rounded-2xl border bg-surface ${
+        isActive ? "border-line" : "border-dashed border-line-strong bg-canvas/40"
       }`}
     >
-      {/* --- head: name, count, state -------------------------------- */}
-      <div className="flex items-start justify-between gap-3 px-4 pt-4">
-        <div className="min-w-0">
-          <h2
-            className={`truncate text-[15px] font-bold leading-tight ${
-              isActive ? "text-purple-royal" : "text-ink-muted"
-            }`}
-            title={name}
-          >
-            {name}
-          </h2>
-          <p className="mt-1 text-[12px] text-ink-muted">
-            {published.length === 0 ? (
-              "No nominees yet"
-            ) : (
-              <>
-                <span className="font-semibold text-magenta-royal">{published.length}</span> nominee
-                {published.length === 1 ? "" : "s"} live
-              </>
-            )}
-            {hidden > 0 && ` · ${hidden} hidden`}
-          </p>
-        </div>
+      {/* ---- box header: name, link, controls ---------------------- */}
+      <div className="border-b border-line px-4 py-4 sm:px-5">
+        <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h2
+                className={`text-lg font-bold leading-tight tracking-tight sm:text-xl ${
+                  isActive ? "text-purple-royal" : "text-ink-muted"
+                }`}
+              >
+                {name}
+              </h2>
+              <ActiveToggle id={id} active={isActive} hasNominees={published.length > 0} />
+            </div>
 
-        <ActiveToggle id={id} active={isActive} hasNominees={published.length > 0} />
-      </div>
-
-      {editing ? (
-        <form action={action} className="px-4 pb-4 pt-3">
-          <input type="hidden" name="id" value={id} />
-          <SlugEditor name={name} slug={slug} />
-
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Button type="submit" className="px-4 py-2 text-[13px]">
-              Save
-            </Button>
-            <button
-              type="button"
-              onClick={() => setEditing(false)}
-              className="rounded-lg px-3 py-2 text-[13px] font-semibold text-ink-muted hover:bg-canvas"
-            >
-              Cancel
-            </button>
-          </div>
-
-          {state.status !== "idle" && (
-            <p
-              role="status"
-              className={`mt-2 text-[12px] font-medium ${
-                state.status === "saved" ? "text-gold-champagne" : "text-magenta-dark"
-              }`}
-            >
-              {state.message}
+            <p className="mt-1 text-[13px] text-ink-muted">
+              {published.length === 0 ? (
+                "No nominees yet"
+              ) : (
+                <>
+                  <span className="font-semibold text-magenta-royal">{published.length}</span>{" "}
+                  nominee{published.length === 1 ? "" : "s"} live on this page
+                </>
+              )}
+              {hidden > 0 && ` · ${hidden} hidden`}
             </p>
-          )}
-        </form>
-      ) : (
-        <>
-          {/* --- the link: the point of this screen ------------------ */}
-          <div className="px-4 pt-3">
-            <LinkBlock url={voteUrl} disabled={!isActive} />
           </div>
 
-          {/* --- who is on it --------------------------------------- */}
-          <div className="flex-1 px-4 pt-3">
-            {nominees.length === 0 ? (
-              <p className="text-[12px] leading-relaxed text-ink-muted">
-                Cards appear here as you promote applicants in this category.
-              </p>
-            ) : (
-              <ul className="flex flex-wrap gap-1.5">
-                {nominees.map((nominee) => (
-                  <li key={nominee.id}>
-                    <Link
-                      href={`/admin/nominees/${nominee.id}`}
-                      title={`${nominee.display_name} — ${nominee.business_name}`}
-                      className={`inline-flex items-center gap-1.5 rounded-full py-1 pl-1 pr-2.5
-                                  text-[12px] font-medium ring-1 ring-inset transition-colors ${
-                                    nominee.is_published
-                                      ? "bg-magenta-soft text-magenta-royal ring-magenta-royal/15 hover:bg-magenta-royal hover:text-white"
-                                      : "bg-neutral-100 text-neutral-500 ring-line hover:bg-purple-soft hover:text-purple-royal"
-                                  }`}
-                    >
-                      <Thumb
-                        url={nominee.photo_path ? (photoUrls[nominee.photo_path] ?? null) : null}
-                        name={nominee.display_name}
-                      />
-                      <span className="max-w-[8.5rem] truncate">{nominee.display_name}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {/* --- footer: the rare actions --------------------------- */}
-          <div className="mt-3 flex items-center justify-between gap-2 border-t border-line px-4 py-2.5">
+          <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"
-              onClick={() => setEditing(true)}
-              className="text-[13px] font-semibold text-magenta-royal hover:underline"
+              onClick={() => setEditing((open) => !open)}
+              className="rounded-lg px-3 py-1.5 text-[13px] font-semibold text-magenta-royal
+                         transition-colors hover:bg-magenta-soft"
             >
-              Rename
+              {editing ? "Cancel" : "Rename"}
             </button>
             <ReorderButtons kind="category" id={id} first={first} last={last} label={name} />
           </div>
-        </>
-      )}
+        </div>
+
+        {editing ? (
+          <form action={action} className="mt-4 rounded-xl bg-canvas p-4">
+            <input type="hidden" name="id" value={id} />
+            <SlugEditor name={name} slug={slug} />
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <Button type="submit" className="px-5 py-2 text-[13px]">
+                Save
+              </Button>
+              {state.status !== "idle" && (
+                <p
+                  role="status"
+                  className={`text-[13px] font-medium ${
+                    state.status === "saved" ? "text-gold-champagne" : "text-magenta-dark"
+                  }`}
+                >
+                  {state.message}
+                </p>
+              )}
+            </div>
+          </form>
+        ) : (
+          <div className="mt-3.5">
+            <LinkBlock url={voteUrl} disabled={!isActive} />
+          </div>
+        )}
+      </div>
+
+      {/* ---- box body: the nominee cards --------------------------- */}
+      <div className="px-4 py-4 sm:px-5">
+        {nominees.length === 0 ? (
+          <p className="py-2 text-[13px] text-ink-muted">
+            No nominee cards yet. Promote an applicant in this category from{" "}
+            <Link
+              href="/admin/applicants"
+              className="font-medium underline underline-offset-2 hover:text-purple-royal"
+            >
+              Applicants
+            </Link>{" "}
+            and her card appears here.
+          </p>
+        ) : (
+          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+            {nominees.map((nominee) => (
+              <NomineeMiniCard
+                key={nominee.id}
+                nominee={nominee}
+                photoUrl={nominee.photo_path ? (photoUrls[nominee.photo_path] ?? null) : null}
+              />
+            ))}
+          </ul>
+        )}
+      </div>
+    </li>
+  );
+}
+
+/**
+ * A nominee inside her category box -- the same three facts her public card
+ * carries (photo, name, business), so this screen previews the voting page
+ * rather than describing it.
+ */
+function NomineeMiniCard({
+  nominee,
+  photoUrl,
+}: {
+  nominee: CategoryCardNominee;
+  photoUrl: string | null;
+}) {
+  return (
+    <li>
+      <Link
+        href={`/admin/nominees/${nominee.id}`}
+        className={`flex h-full items-center gap-3 rounded-xl p-2.5 ring-1 ring-inset
+                    transition-colors ${
+                      nominee.is_published
+                        ? "bg-magenta-soft/50 ring-magenta-royal/15 hover:bg-magenta-soft hover:ring-magenta-royal/35"
+                        : "bg-canvas ring-line hover:bg-purple-soft/50"
+                    }`}
+      >
+        {photoUrl ? (
+          // Plain <img>: a 48px thumbnail behind a short-lived signed URL, where
+          // next/image's optimiser adds a round trip and nothing else.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={photoUrl}
+            alt=""
+            aria-hidden="true"
+            className="size-12 shrink-0 rounded-lg object-cover ring-1 ring-line"
+          />
+        ) : (
+          <span
+            aria-hidden="true"
+            title="No photo yet"
+            className="flex size-12 shrink-0 items-center justify-center rounded-lg
+                       bg-white text-base font-bold text-purple-royal ring-1 ring-line"
+          >
+            {nominee.display_name.trim().charAt(0).toUpperCase() || "?"}
+          </span>
+        )}
+
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[13px] font-bold text-purple-royal">
+            {nominee.display_name}
+          </span>
+          <span className="block truncate text-[12px] text-ink-muted">
+            {nominee.business_name}
+          </span>
+          <span className="mt-0.5 flex items-center gap-1.5">
+            <span
+              aria-hidden="true"
+              className={`size-1.5 rounded-full ${
+                nominee.is_published ? "bg-magenta-royal" : "bg-neutral-400"
+              }`}
+            />
+            <span
+              className={`text-[11px] font-semibold uppercase tracking-wide ${
+                nominee.is_published ? "text-magenta-royal" : "text-ink-muted"
+              }`}
+            >
+              {nominee.is_published ? "Live" : "Hidden"}
+            </span>
+            {!nominee.photo_path && (
+              <span className="text-[11px] font-medium text-magenta-dark">· no photo</span>
+            )}
+          </span>
+        </span>
+      </Link>
     </li>
   );
 }
@@ -192,8 +251,6 @@ export function CategoryCard({
 function LinkBlock({ url, disabled }: { url: string; disabled: boolean }) {
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
 
-  // Split so a 50-character URL wraps predictably instead of truncating or
-  // pushing the grid sideways.
   const withoutScheme = url.replace(/^https?:\/\//, "");
   const cut = withoutScheme.indexOf("/vote/");
   const host = cut === -1 ? "" : withoutScheme.slice(0, cut);
@@ -210,18 +267,19 @@ function LinkBlock({ url, disabled }: { url: string; disabled: boolean }) {
   }
 
   return (
-    <div className="space-y-1.5">
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
       <button
         type="button"
         onClick={copy}
         title={disabled ? `${url} — this category is hidden, so the page is closed` : `Copy ${url}`}
-        className={`group w-full rounded-xl px-3 py-2.5 text-left ring-1 ring-inset transition-colors ${
-          disabled
-            ? "bg-canvas ring-line"
-            : "bg-purple-soft/60 ring-purple-royal/10 hover:bg-purple-soft hover:ring-purple-royal/25"
-        }`}
+        className={`group min-w-0 flex-1 rounded-xl px-3.5 py-2.5 text-left ring-1 ring-inset
+                    transition-colors sm:max-w-lg ${
+                      disabled
+                        ? "bg-canvas ring-line"
+                        : "bg-purple-soft/60 ring-purple-royal/10 hover:bg-purple-soft hover:ring-purple-royal/25"
+                    }`}
       >
-        <span className="flex items-center justify-between gap-2">
+        <span className="flex items-center justify-between gap-3">
           <span className="min-w-0">
             {host && (
               <span className="block truncate font-mono text-[11px] leading-tight text-ink-muted">
@@ -238,8 +296,8 @@ function LinkBlock({ url, disabled }: { url: string; disabled: boolean }) {
           </span>
 
           <span
-            className={`shrink-0 rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wide
-                        transition-colors ${
+            className={`shrink-0 rounded-md px-2.5 py-1 text-[11px] font-bold uppercase
+                        tracking-wide transition-colors ${
                           state === "copied"
                             ? "bg-magenta-royal text-white"
                             : "bg-white text-magenta-royal ring-1 ring-inset ring-magenta-royal/20 group-hover:bg-magenta-royal group-hover:text-white"
@@ -250,20 +308,20 @@ function LinkBlock({ url, disabled }: { url: string; disabled: boolean }) {
         </span>
       </button>
 
-      {!disabled && (
+      {disabled ? (
+        <p className="text-[12px] leading-snug text-ink-muted">
+          Hidden — this page is closed and the link will not open.
+        </p>
+      ) : (
         <a
           href={url}
           target="_blank"
           rel="noreferrer"
-          className="inline-block text-[12px] font-medium text-ink-muted underline underline-offset-2 hover:text-purple-royal"
+          className="text-[13px] font-medium text-ink-muted underline underline-offset-2
+                     hover:text-purple-royal"
         >
           Open the page ↗
         </a>
-      )}
-      {disabled && (
-        <p className="text-[12px] leading-snug text-ink-muted">
-          Hidden — this page is closed and the link will not open.
-        </p>
       )}
     </div>
   );
@@ -284,7 +342,7 @@ function SlugEditor({ name, slug }: { name: string; slug: string }) {
   const changed = effective !== slug;
 
   return (
-    <div className="space-y-3">
+    <div className="grid gap-3 sm:grid-cols-2">
       <label className="block space-y-1.5">
         <span className="block text-[13px] font-medium text-heading">Category name</span>
         <input
@@ -350,33 +408,31 @@ function ActiveToggle({
 
   if (confirming) {
     return (
-      <span className="flex shrink-0 flex-col items-end gap-1">
-        <span className="text-right text-[11px] leading-tight text-ink-muted">Close this page?</span>
-        <span className="inline-flex gap-1">
-          <button
-            type="button"
-            onClick={() => apply(false)}
-            disabled={pending}
-            className="rounded-md bg-purple-royal px-2 py-1 text-[11px] font-semibold text-white
-                       hover:bg-purple-deep disabled:opacity-60"
-          >
-            {pending ? "…" : "Hide"}
-          </button>
-          <button
-            type="button"
-            onClick={() => setConfirming(false)}
-            className="rounded-md px-2 py-1 text-[11px] font-semibold text-ink-muted
-                       ring-1 ring-inset ring-line hover:bg-canvas"
-          >
-            No
-          </button>
-        </span>
+      <span className="inline-flex items-center gap-1.5">
+        <span className="text-[11px] text-ink-muted">Close this page?</span>
+        <button
+          type="button"
+          onClick={() => apply(false)}
+          disabled={pending}
+          className="rounded-md bg-purple-royal px-2 py-1 text-[11px] font-semibold text-white
+                     hover:bg-purple-deep disabled:opacity-60"
+        >
+          {pending ? "…" : "Hide"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setConfirming(false)}
+          className="rounded-md px-2 py-1 text-[11px] font-semibold text-ink-muted
+                     ring-1 ring-inset ring-line hover:bg-canvas"
+        >
+          No
+        </button>
       </span>
     );
   }
 
   return (
-    <span className="flex shrink-0 flex-col items-end gap-1">
+    <span className="inline-flex flex-col items-start gap-1">
       <button
         type="button"
         onClick={click}
@@ -398,28 +454,10 @@ function ActiveToggle({
         {pending ? "…" : active ? "Open" : "Hidden"}
       </button>
       {error && (
-        <span role="alert" className="max-w-[9rem] text-right text-[11px] font-medium text-magenta-dark">
+        <span role="alert" className="text-[11px] font-medium text-magenta-dark">
           {error}
         </span>
       )}
-    </span>
-  );
-}
-
-function Thumb({ url, name }: { url: string | null; name: string }) {
-  if (url) {
-    // Plain <img>: these are 20px chips behind short-lived signed URLs, where
-    // next/image's optimiser adds a round trip and nothing else.
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={url} alt="" aria-hidden="true" className="size-5 rounded-full object-cover" />;
-  }
-  return (
-    <span
-      aria-hidden="true"
-      className="flex size-5 items-center justify-center rounded-full bg-white/60
-                 text-[9px] font-bold text-purple-royal"
-    >
-      {name.trim().charAt(0).toUpperCase() || "?"}
     </span>
   );
 }

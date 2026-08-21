@@ -17,10 +17,11 @@ export const metadata: Metadata = {
  * nominee, which makes this the page the client opens on the day: fourteen
  * links to copy, each showing who is on it.
  *
- * Laid out as a card grid rather than a list because the fourteen are peers to
- * be scanned and picked from, not a ranked sequence to read top to bottom -- a
- * grid puts four times as many within one glance, and gives each link room to
- * be a real tap target instead of a word squeezed beside a long URL.
+ * Each category is a full-width box holding its own nominee cards, because
+ * that is the real structure: a nominee has no link of her own and exists only
+ * as a card on her category's page (section 6). One box per shared link,
+ * holding the cards that link leads to, means this screen previews the voting
+ * page rather than merely describing it.
  */
 export default async function CategoriesPage() {
   const groups = await listCategoriesWithNominees();
@@ -64,7 +65,7 @@ export default async function CategoriesPage() {
         </div>
       )}
 
-      <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+      <ul className="space-y-3">
         {groups.map((group, index) => (
           <CategoryCard
             key={group.id}
@@ -77,6 +78,7 @@ export default async function CategoriesPage() {
               id: n.id,
               display_name: n.display_name,
               business_name: n.business_name,
+              area_location: n.area_location,
               is_published: n.is_published,
               photo_path: n.photo_path,
             }))}
