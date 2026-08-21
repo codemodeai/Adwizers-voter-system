@@ -11,8 +11,8 @@ Built to the spec in [`docs/AWE_Awards_2026_Final_Plan.pdf`](docs/AWE_Awards_202
 | Phase | Scope | Status |
 | --- | --- | --- |
 | **1** | Registration form (Form 1) + Applicants module | ✅ Built |
-| 2 | Nominees — promote, public profile editing, Resend notification | Not started |
-| 3 | Voter portal — category pages, Turnstile, SES codes, vote rules | Not started |
+| **2** | Nominees — promote, public profile editing, Resend notification | ✅ Built |
+| 3 | Voter portal — category pages, Turnstile, SES codes, vote rules | Cards built; **ballot not open** |
 | 4 | Voting control, analytics, winner reveal, export, backup | Not started |
 
 Dashboard modules from plan section 5 that belong to later phases are visible in
@@ -35,6 +35,8 @@ Fill in from **Supabase Dashboard → Project Settings → API**:
 | `NEXT_PUBLIC_SUPABASE_URL` | everywhere |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | browser + admin session (RLS applies) |
 | `SUPABASE_SECRET_KEY` | **server only** — public form insert, logo storage |
+| `RESEND_API_KEY` | **admin only, optional** — nominee selection emails |
+| `RESEND_FROM` | **admin only** — sender on your verified Resend domain |
 
 `SUPABASE_SECRET_KEY` must never gain a `NEXT_PUBLIC_` prefix; it bypasses RLS.
 
@@ -43,10 +45,13 @@ are **deliberately left unset locally** — see [DOMAINS.md](DOMAINS.md).
 
 ### 2. Database
 
-Run [`supabase/migrations/20260819000001_init_applicants.sql`](supabase/migrations/20260819000001_init_applicants.sql)
-in the Supabase SQL Editor. It creates `categories` (seeded with the 14
-categories from plan section 15), `applicants`, `admins`, the RLS policies, and
-the private `applicant-logos` storage bucket.
+Run the files in [`supabase/migrations/`](supabase/migrations) in the Supabase
+SQL Editor, in filename order. There is no Supabase CLI here — **schema and code
+deploy separately, and the schema goes first.**
+
+The first one creates `categories` (seeded with the 14 categories from plan
+section 15), `applicants`, `admins`, the RLS policies, and the private
+`applicant-logos` storage bucket. Later ones are additive only.
 
 ### 3. First admin
 
@@ -71,6 +76,10 @@ npm run dev
 | `/admin/login` | admin | Admin sign in |
 | `/admin/applicants` | admin | Applicants list — search, filter, paginate |
 | `/admin/applicants/[id]` | admin | Review & edit a submission |
+| `/admin/nominees` | admin | Nominees grouped by category — publish, reorder, email |
+| `/admin/nominees/[id]` | admin | Edit the public profile |
+| `/admin/categories` | admin | Categories + the shareable voting link for each |
+| `/vote/[slug]` | form | Public category page — the shareable link |
 
 `npm run dev` serves both surfaces on one port, which is how local development
 normally runs. To drive the two-domain split locally instead:
@@ -116,6 +125,22 @@ route that can read or write it.
   RLS calls `requireAdmin()` rather than trusting the layout guard.
 - The category slug used to enforce the *"Other — please specify"* rule is read
   from the database, not the submitted form, so it cannot be spoofed.
+
+## Nominees, in one paragraph
+
+Promoting an applicant creates a **separate `nominees` row** rather than
+flipping a flag, because plan section 4 requires the admin to edit public copy
+"without touching the original form data" — two tables is what makes that
+literally true. Promotion publishes her card, then emails her via Resend. The
+email is deliberately last and non-fatal: a missing `RESEND_API_KEY` or a Resend
+outage records `notify_error` on the nominee and shows a **Send now** button,
+rather than unwinding a promotion that already succeeded. Nominees have **no
+link of their own** — the shareable link is per category (section 6), and
+`/admin/categories` is where you copy it.
+
+`anon` gets a **column-level** grant on `nominees`, not a table-level one: RLS
+filters rows, not columns, so a `select *` from the voting page would otherwise
+return each nominee's notification email.
 
 ## Notes carried from the plan
 
