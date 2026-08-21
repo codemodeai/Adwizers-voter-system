@@ -5,6 +5,7 @@ import { ApplicantAvatar } from "@/components/admin/ApplicantAvatar";
 import { ApplicantCard } from "@/components/admin/ApplicantCard";
 import { PromoteButton } from "@/components/admin/PromoteButton";
 import { ViewToggle, type ApplicantView } from "@/components/admin/ViewToggle";
+import { FeeBadge } from "@/components/admin/FeeBadge";
 import { PaymentToggle } from "@/components/admin/PaymentToggle";
 import { StatusBadge } from "@/components/admin/StatusBadge";
 import { ApplicantFilters } from "@/components/admin/ApplicantFilters";
@@ -112,7 +113,7 @@ export default async function ApplicantsPage({
       {view === "table" && (
         <div className="overflow-hidden rounded-xl border border-line bg-surface">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[58rem] text-left text-sm">
+            <table className="w-full min-w-[64rem] text-left text-sm">
               <thead className="border-b border-line bg-canvas">
                 <tr className="text-[12px] font-semibold uppercase tracking-wide text-ink-muted">
                   <th className="px-4 py-3">Applicant</th>
@@ -121,13 +122,14 @@ export default async function ApplicantsPage({
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Submitted</th>
                   <th className="px-4 py-3 text-center">Payment</th>
+                  <th className="px-4 py-3 text-center">Fee</th>
                   <th className="px-4 py-3 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
                 {applicants.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-14 text-center">
+                    <td colSpan={8} className="px-4 py-14 text-center">
                       <p className="text-sm font-medium text-charcoal">
                         {filtered ? "No applicants match these filters." : "No applications yet."}
                       </p>
@@ -193,6 +195,15 @@ export default async function ApplicantsPage({
                     <td className="px-4 py-3">
                       <div className="flex justify-center">
                         <PaymentToggle id={a.id} status={a.status} />
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-center">
+                        <FeeBadge
+                          agreedAt={a.fee_agreed_at}
+                          amount={a.fee_amount_inr}
+                          compact
+                        />
                       </div>
                     </td>
                     <td className="px-4 py-3">

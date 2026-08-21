@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { ApplicantAvatar } from "@/components/admin/ApplicantAvatar";
+import { FeeBadge } from "@/components/admin/FeeBadge";
 import { PaymentToggle } from "@/components/admin/PaymentToggle";
 import { PromoteButton } from "@/components/admin/PromoteButton";
 import { StatusBadge } from "@/components/admin/StatusBadge";
@@ -53,6 +54,7 @@ export function ApplicantCard({
         <p className="truncate text-ink-muted" title={a.email}>
           {a.email}
         </p>
+        <FeeBadge agreedAt={a.fee_agreed_at} amount={a.fee_amount_inr} compact />
       </div>
 
       <div className="mt-auto flex items-center justify-between gap-2 border-t border-line bg-canvas px-3 py-2.5">

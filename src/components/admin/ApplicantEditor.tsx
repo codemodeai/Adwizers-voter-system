@@ -12,6 +12,7 @@ import {
   EMPTY_EDIT_STATE,
   EMPTY_LOGO_STATE,
 } from "@/app/admin/(dashboard)/applicants/[id]/state";
+import { FeeBadge, formatFee } from "@/components/admin/FeeBadge";
 import { Button } from "@/components/ui/Button";
 import { Field, inputClass, selectClass, textareaClass } from "@/components/ui/Field";
 import { LogoField } from "@/components/ui/LogoField";
@@ -389,6 +390,39 @@ export function ApplicantEditor({
               </form>
             )}
           </div>
+        </Panel>
+
+        <Panel title="Fee Agreement">
+          {a.fee_agreed_at ? (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-lg font-bold text-purple-royal">
+                  {formatFee(a.fee_amount_inr)}
+                </span>
+                <FeeBadge agreedAt={a.fee_agreed_at} amount={a.fee_amount_inr} />
+              </div>
+              <p className="text-[12px] leading-relaxed text-ink-muted">
+                Agreed to pay on{" "}
+                {new Date(a.fee_agreed_at).toLocaleString("en-IN", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+                , at the price shown on the form that day.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <FeeBadge agreedAt={null} />
+              <p className="text-[12px] leading-relaxed text-ink-muted">
+                No fee agreement on record. This entry was submitted before the fee step was
+                added to the form, so this applicant was never asked to agree to it -- worth
+                confirming with them before treating the fee as owed.
+              </p>
+            </div>
+          )}
         </Panel>
 
         <Panel title="Consent Record">
