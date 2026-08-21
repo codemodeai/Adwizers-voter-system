@@ -61,7 +61,7 @@ function Submit({ label, busy }: { label: string; busy: string }) {
       disabled={pending}
       className="w-full rounded-xl bg-accent px-6 py-3.5 text-base font-semibold text-white
                  shadow-lg shadow-accent/25 transition-colors hover:bg-accent-hover
-                 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:px-10"
+                 disabled:cursor-not-allowed disabled:opacity-60"
     >
       {pending ? busy : label}
     </button>
@@ -69,14 +69,21 @@ function Submit({ label, busy }: { label: string; busy: string }) {
 }
 
 /**
- * The ballot (Final Plan sections 6, 7, 8).
+ * The ballot (Final Plan sections 6, 7, 8), in two steps.
  *
- * One page, one submission: the voter ticks everyone she wants to back in this
- * category, fills her details once, and submits. That is section 6's whole
- * shape, and it is why the selection lives here rather than on each card.
+ * Step one is the nominees and nothing else; step two is the details and the
+ * emailed code. Section 6 requires one submission covering every nominee
+ * checked, and that is preserved -- the split is presentational, and the whole
+ * selection still travels in a single submit.
  *
- * The selection is held in this component across the verification step, so
- * entering a code never costs the voter her choices.
+ * Two steps rather than one long page because the two tasks want different
+ * attention: choosing is browsing, comparing, reading bios; filling in details
+ * is form-filling. On a phone the form was pushing the cards off-screen, so a
+ * voter checking who she had picked had to scroll back past everything.
+ *
+ * The selection lives in this component across both steps and across the
+ * verification round trip, so neither going back nor entering a code ever costs
+ * a voter her choices.
  */
 export function VoteForm({
   slug,
@@ -91,12 +98,16 @@ export function VoteForm({
   photoUrls: Record<string, string>;
   turnstileSiteKey: string | null;
 }) {
+  const [step, setStep] = useState<"select" | "details">("select");
   const [selected, setSelected] = useState<string[]>([]);
+  const [details, setDetails] = useState({ name: "", mobile: "", email: "", location: "" });
+
   const [state, action] = useActionState<VoteState, FormData>(startVote, EMPTY_VOTE_STATE);
   const [codeState, codeAction] = useActionState<VoteState, FormData>(
     submitWithCode,
     EMPTY_VOTE_STATE,
   );
+
   const deviceIdRef = useDeviceIdInput();
   const formId = useId();
 
@@ -104,7 +115,7 @@ export function VoteForm({
   const active: VoteState = codeState.status !== "idle" ? codeState : state;
   const awaitingCode = active.status === "code_sent";
 
-  const [details, setDetails] = useState({ name: "", mobile: "", email: "", location: "" });
+  const chosen = nominees.filter((n) => selected.includes(n.id));
 
   function toggle(id: string) {
     setSelected((current) =>
@@ -116,124 +127,222 @@ export function VoteForm({
     return <Receipt outcomes={active.outcomes} categoryName={categoryName} />;
   }
 
-  return (
-    <>
-      {turnstileSiteKey && (
-        <Script
-          src="https://challenges.cloudflare.com/turnstile/v0/api.js"
-          strategy="lazyOnload"
-        />
-      )}
+  // ---- step one: the nominees, and nothing else --------------------------
+  if (step === "select" && !awaitingCode) {
+    return (
+      <div className="mt-8">
+        <StepBar step={1} />
 
-      <form action={awaitingCode ? codeAction : action} className="mt-8">
-        <input type="hidden" name="slug" value={slug} />
-        <input ref={deviceIdRef} type="hidden" name="device_id" defaultValue="" />
-        {/* Carried through the code step so a verification never loses the
-          * voter's selection or her typed details. */}
-        {selected.map((id) => (
-          <input key={id} type="hidden" name="nominee" value={id} />
-        ))}
-        {awaitingCode && (
-          <>
-            <input type="hidden" name="voter_name" value={details.name} />
-            <input type="hidden" name="voter_mobile" value={details.mobile} />
-            <input type="hidden" name="voter_email" value={details.email} />
-            <input type="hidden" name="voter_location" value={details.location} />
-          </>
-        )}
-
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {nominees.map((nominee) => (
             <NomineeCard
               key={nominee.id}
               nominee={nominee}
               photoUrl={nominee.photo_path ? (photoUrls[nominee.photo_path] ?? null) : null}
-              selectable={!awaitingCode}
+              selectable
               selected={selected.includes(nominee.id)}
               onToggle={() => toggle(nominee.id)}
             />
           ))}
         </ul>
 
-        <div className="mx-auto mt-8 max-w-xl rounded-2xl border border-line bg-surface/70 p-5 sm:p-6">
-          {awaitingCode ? (
-            <CodeStep email={active.email} message={active.message} />
-          ) : (
-            <>
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 className="text-base font-bold text-heading">Your details</h2>
-                <p className="text-[13px] font-medium text-accent">
-                  {selected.length === 0
-                    ? "No nominees selected yet"
-                    : `${selected.length} selected`}
-                </p>
-              </div>
-              <p className="mt-1 text-[13px] leading-relaxed text-ink-muted">
-                Filled once, however many nominees you pick. We email you a code to confirm it&rsquo;s
-                you — one code covers your whole visit.
-              </p>
-
-              <div className="mt-4 grid gap-3.5 sm:grid-cols-2">
-                <TextField
-                  id={`${formId}-name`}
-                  name="voter_name"
-                  label="Your name"
-                  required
-                  value={details.name}
-                  onChange={(v) => setDetails((d) => ({ ...d, name: v }))}
-                />
-                <TextField
-                  id={`${formId}-mobile`}
-                  name="voter_mobile"
-                  label="Mobile number"
-                  required
-                  inputMode="tel"
-                  value={details.mobile}
-                  onChange={(v) => setDetails((d) => ({ ...d, mobile: v }))}
-                />
-                <TextField
-                  id={`${formId}-email`}
-                  name="voter_email"
-                  label="Email"
-                  required
-                  type="email"
-                  hint="Your code comes here"
-                  value={details.email}
-                  onChange={(v) => setDetails((d) => ({ ...d, email: v }))}
-                />
-                <TextField
-                  id={`${formId}-location`}
-                  name="voter_location"
-                  label="Location"
-                  value={details.location}
-                  onChange={(v) => setDetails((d) => ({ ...d, location: v }))}
-                />
-              </div>
-
-              {turnstileSiteKey && (
-                <div
-                  className="cf-turnstile mt-4"
-                  data-sitekey={turnstileSiteKey}
-                  data-theme="dark"
-                  data-size="flexible"
-                />
+        {/* Sticky, because the selection is made anywhere down a long grid and
+          * the way forward should never be somewhere the voter has to hunt. */}
+        <div className="sticky bottom-0 z-10 mt-6 -mx-4 border-t border-line bg-canvas/95 px-4 py-3.5 backdrop-blur sm:-mx-5 sm:px-5">
+          <div className="mx-auto flex max-w-xl flex-wrap items-center justify-between gap-3">
+            <p className="text-[13px] font-medium text-ink">
+              {selected.length === 0 ? (
+                <span className="text-ink-muted">Tick everyone you want to vote for</span>
+              ) : (
+                <>
+                  <span className="text-accent">{selected.length}</span> selected
+                </>
               )}
+            </p>
+            <button
+              type="button"
+              onClick={() => setStep("details")}
+              disabled={selected.length === 0}
+              className="w-full rounded-xl bg-accent px-8 py-3 text-base font-semibold text-white
+                         shadow-lg shadow-accent/25 transition-colors hover:bg-accent-hover
+                         disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
+            >
+              Continue
+            </button>
+          </div>
+        </div>
 
-              {active.status === "error" && <Problem>{active.message}</Problem>}
+        <p className="mt-4 text-center text-[12px] text-ink-muted">
+          One vote per nominee. You can back several nominees in this category.
+        </p>
+      </div>
+    );
+  }
 
-              <div className="mt-5">
-                <Submit label="Continue" busy="Checking…" />
-              </div>
+  // ---- step two: details, then the emailed code --------------------------
+  return (
+    <>
+      {turnstileSiteKey && (
+        <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" strategy="lazyOnload" />
+      )}
 
-              <p className="mt-3 text-[12px] leading-relaxed text-ink-muted">
-                One vote per nominee. You can back several nominees in this category, and vote in
-                other categories too.
-              </p>
+      <div className="mt-8">
+        <StepBar step={2} />
+
+        <form action={awaitingCode ? codeAction : action} className="mx-auto mt-5 max-w-xl">
+          <input type="hidden" name="slug" value={slug} />
+          <input ref={deviceIdRef} type="hidden" name="device_id" defaultValue="" />
+          {selected.map((id) => (
+            <input key={id} type="hidden" name="nominee" value={id} />
+          ))}
+          {/* The fields are unmounted during the code step, so their values
+            * travel as hidden inputs instead. */}
+          {awaitingCode && (
+            <>
+              <input type="hidden" name="voter_name" value={details.name} />
+              <input type="hidden" name="voter_mobile" value={details.mobile} />
+              <input type="hidden" name="voter_email" value={details.email} />
+              <input type="hidden" name="voter_location" value={details.location} />
             </>
           )}
-        </div>
-      </form>
+
+          {/* What she picked, since the cards are no longer on screen. */}
+          <div className="rounded-2xl border border-line bg-surface/70 p-4 sm:p-5">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="text-[15px] font-bold text-heading">
+                Voting for {chosen.length} nominee{chosen.length === 1 ? "" : "s"}
+              </h2>
+              {!awaitingCode && (
+                <button
+                  type="button"
+                  onClick={() => setStep("select")}
+                  className="text-[13px] font-semibold text-accent underline underline-offset-2"
+                >
+                  Change selection
+                </button>
+              )}
+            </div>
+            <ul className="mt-2.5 flex flex-wrap gap-1.5">
+              {chosen.map((nominee) => (
+                <li
+                  key={nominee.id}
+                  className="rounded-full bg-accent-soft px-2.5 py-1 text-[12px] font-medium text-accent"
+                >
+                  {nominee.display_name}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="mt-4 rounded-2xl border border-line bg-surface/70 p-5 sm:p-6">
+            {awaitingCode ? (
+              <CodeStep email={active.email} message={active.message} />
+            ) : (
+              <>
+                <h2 className="text-base font-bold text-heading">Your details</h2>
+                <p className="mt-1 text-[13px] leading-relaxed text-ink-muted">
+                  Filled once, however many nominees you picked. We email you a code to confirm
+                  it&rsquo;s you — one code covers your whole visit.
+                </p>
+
+                <div className="mt-4 grid gap-3.5 sm:grid-cols-2">
+                  <TextField
+                    id={`${formId}-name`}
+                    name="voter_name"
+                    label="Your name"
+                    required
+                    value={details.name}
+                    onChange={(v) => setDetails((d) => ({ ...d, name: v }))}
+                  />
+                  <TextField
+                    id={`${formId}-mobile`}
+                    name="voter_mobile"
+                    label="Mobile number"
+                    required
+                    inputMode="tel"
+                    value={details.mobile}
+                    onChange={(v) => setDetails((d) => ({ ...d, mobile: v }))}
+                  />
+                  <TextField
+                    id={`${formId}-email`}
+                    name="voter_email"
+                    label="Email"
+                    required
+                    type="email"
+                    hint="Your code comes here"
+                    value={details.email}
+                    onChange={(v) => setDetails((d) => ({ ...d, email: v }))}
+                  />
+                  <TextField
+                    id={`${formId}-location`}
+                    name="voter_location"
+                    label="Location"
+                    value={details.location}
+                    onChange={(v) => setDetails((d) => ({ ...d, location: v }))}
+                  />
+                </div>
+
+                {turnstileSiteKey && (
+                  <div
+                    className="cf-turnstile mt-4"
+                    data-sitekey={turnstileSiteKey}
+                    data-theme="dark"
+                    data-size="flexible"
+                  />
+                )}
+
+                {active.status === "error" && <Problem>{active.message}</Problem>}
+
+                <div className="mt-5">
+                  <Submit label="Send my code" busy="Checking…" />
+                </div>
+              </>
+            )}
+          </div>
+        </form>
+      </div>
     </>
+  );
+}
+
+/** Where the voter is, in two steps. */
+function StepBar({ step }: { step: 1 | 2 }) {
+  const steps = [
+    { n: 1, label: "Choose nominees" },
+    { n: 2, label: "Your details" },
+  ];
+
+  return (
+    <ol className="mx-auto flex max-w-xl items-center gap-2">
+      {steps.map((item, index) => {
+        const done = step > item.n;
+        const current = step === item.n;
+        return (
+          <li key={item.n} className="flex flex-1 items-center gap-2">
+            <span
+              aria-current={current ? "step" : undefined}
+              className={`flex size-6 shrink-0 items-center justify-center rounded-full text-[12px] font-bold ${
+                current
+                  ? "bg-accent text-white"
+                  : done
+                    ? "bg-accent/25 text-accent"
+                    : "bg-surface text-ink-muted ring-1 ring-inset ring-line"
+              }`}
+            >
+              {done ? "✓" : item.n}
+            </span>
+            <span
+              className={`whitespace-nowrap text-[13px] font-medium ${
+                current ? "text-heading" : "text-ink-muted"
+              }`}
+            >
+              {item.label}
+            </span>
+            {index === 0 && <span className="h-px flex-1 bg-line" />}
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
