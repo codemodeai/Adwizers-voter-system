@@ -6,6 +6,7 @@ import { ApplicantCard } from "@/components/admin/ApplicantCard";
 import { PromoteButton } from "@/components/admin/PromoteButton";
 import { ViewToggle, type ApplicantView } from "@/components/admin/ViewToggle";
 import { FeeBadge } from "@/components/admin/FeeBadge";
+import { FormTypeTabs } from "@/components/admin/FormTypeTabs";
 import { PaymentToggle } from "@/components/admin/PaymentToggle";
 import { StatusBadge } from "@/components/admin/StatusBadge";
 import { ApplicantFilters } from "@/components/admin/ApplicantFilters";
@@ -18,7 +19,13 @@ import {
   PAGE_SIZE_CARDS,
   PAGE_SIZE_TABLE,
 } from "@/lib/applicants";
-import { categoryLabel, STATUS_LABEL, type ApplicantStatus } from "@/lib/types";
+import {
+  categoryLabel,
+  STATUS_LABEL,
+  type ApplicantStatus,
+  type FormType,
+} from "@/lib/types";
+import { STALL_SPACES_TOTAL } from "@/lib/carnival";
 import { formUrl } from "@/lib/target";
 
 export const metadata: Metadata = {
@@ -58,14 +65,19 @@ export default async function ApplicantsPage({
   const categoryId = typeof sp.category === "string" ? Number(sp.category) || undefined : undefined;
   const page = typeof sp.page === "string" ? Number(sp.page) || 1 : 1;
   const view: ApplicantView = sp.view === "cards" ? "cards" : "table";
+  // Award is the default tab: it is the older list and much the larger one.
+  const formType: FormType = sp.form === "business" ? "stall" : "award";
+  const isStall = formType === "stall";
 
   const pageSize = view === "cards" ? PAGE_SIZE_CARDS : PAGE_SIZE_TABLE;
 
-  const [{ applicants, total, pageCount, error }, categories, counts] = await Promise.all([
-    listApplicants({ search, status, categoryId, page, pageSize }),
-    listCategories(),
-    applicantCounts(),
-  ]);
+  const [{ applicants, total, pageCount, error }, categories, counts, otherCounts] =
+    await Promise.all([
+      listApplicants({ formType, search, status, categoryId, page, pageSize }),
+      listCategories(),
+      applicantCounts(formType),
+      applicantCounts(isStall ? "award" : "stall"),
+    ]);
 
   // One signing round trip for every thumbnail on this page.
   const logoUrls = await signLogoUrls(applicants.map((a) => a.logo_path));
@@ -79,21 +91,42 @@ export default async function ApplicantsPage({
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-purple-royal">Applicants</h1>
         <p className="mt-1 text-sm text-ink-muted">
-          Every Form 1 submission. Open one to edit any field, add notes, or mark payment received.
+          {isStall
+            ? "Business Carnival stall bookings. Open one to edit any field, add notes, or mark payment received."
+            : "Every AWE Awards entry. Open one to edit any field, add notes, or mark payment received."}
         </p>
       </div>
+
+      <FormTypeTabs
+        current={formType}
+        view={view}
+        counts={{
+          award: isStall ? otherCounts.total : counts.total,
+          stall: isStall ? counts.total : otherCounts.total,
+        }}
+      />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatTile label="Total" value={counts.total} tone="text-purple-royal" />
         <StatTile label="New" value={counts.new} tone="text-purple-royal" />
         <StatTile label="Paid" value={counts.payment_received} tone="text-gold-champagne" />
-        <StatTile label="Promoted" value={counts.promoted} tone="text-magenta-royal" />
+        {/* A stall booking is never promoted to a nominee. What matters on that
+          * tab is how much of the venue is still unsold. */}
+        {isStall ? (
+          <StatTile
+            label="Spaces left"
+            value={Math.max(0, STALL_SPACES_TOTAL - counts.payment_received - counts.promoted)}
+            tone="text-magenta-royal"
+          />
+        ) : (
+          <StatTile label="Promoted" value={counts.promoted} tone="text-magenta-royal" />
+        )}
       </div>
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
         <div className="min-w-0 flex-1">
           <ApplicantFilters
-            categories={categories}
+            categories={isStall ? [] : categories}
             defaultSearch={search}
             defaultStatus={statusParam}
             defaultCategory={typeof sp.category === "string" ? sp.category : ""}
@@ -135,7 +168,11 @@ export default async function ApplicantsPage({
                   <tr>
                     <td colSpan={6} className="px-4 py-14 text-center">
                       <p className="text-sm font-medium text-charcoal">
-                        {filtered ? "No applicants match these filters." : "No applications yet."}
+                        {filtered
+                          ? "No applicants match these filters."
+                          : isStall
+                            ? "No stall bookings yet."
+                            : "No applications yet."}
                       </p>
                       <p className="mt-1 text-[13px] text-ink-muted">
                         {filtered ? (
@@ -191,9 +228,9 @@ export default async function ApplicantsPage({
                       <p className="tabular-nums">{a.whatsapp_number}</p>
                       <p
                         className="mt-0.5 max-w-[13rem] truncate text-ink-muted"
-                        title={a.email}
+                        title={a.email ?? undefined}
                       >
-                        {a.email}
+                        {a.email ?? "—"}
                       </p>
                     </td>
                     <td className="w-px px-3 py-3 lg:px-4">
@@ -219,7 +256,7 @@ export default async function ApplicantsPage({
                         {/* Promote needs payment first anyway, so on a phone it
                           * gives up its space to Review. */}
                         <span className="hidden sm:inline-flex">
-                          <PromoteButton id={a.id} status={a.status} />
+                          <PromoteButton id={a.id} status={a.status} formType={a.form_type} />
                         </span>
                         <Link
                           href={`/admin/applicants/${a.id}`}

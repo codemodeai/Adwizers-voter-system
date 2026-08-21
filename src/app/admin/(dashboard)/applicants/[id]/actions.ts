@@ -4,11 +4,14 @@ import { revalidatePath } from "next/cache";
 
 import { requireAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { STALL_CATEGORIES } from "@/lib/carnival";
 import type { ApplicantStatus } from "@/lib/types";
 import { validateLogoFile } from "@/lib/validation/applicant";
 import type { EditState, LogoState } from "./state";
 
 const VALID_STATUSES: ApplicantStatus[] = ["new", "payment_received", "promoted", "rejected"];
+
+const STALL_CATEGORY_SLUGS = STALL_CATEGORIES.map((c) => c.value);
 
 function text(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
@@ -38,6 +41,17 @@ export async function updateApplicant(
   const id = text(formData, "id");
   if (!id) return { status: "error", message: "Missing applicant id." };
 
+  // Which form this entry came from decides which fields are even on screen,
+  // so it has to come from the row rather than the posted payload.
+  const { data: current } = await supabase
+    .from("applicants")
+    .select("form_type, status, payment_received_at")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!current) return { status: "error", message: "Applicant not found." };
+  const isStall = current.form_type === "stall";
+
   const fieldErrors: Record<string, string> = {};
 
   const fullName = text(formData, "full_name");
@@ -47,15 +61,22 @@ export async function updateApplicant(
   const businessName = text(formData, "business_name");
   const profession = text(formData, "profession");
   const categoryId = Number(text(formData, "category_id"));
+  const stallCategory = text(formData, "stall_category");
 
   if (!fullName) fieldErrors.full_name = "Full name cannot be empty";
   if (!whatsapp) fieldErrors.whatsapp_number = "WhatsApp number cannot be empty";
-  if (!email) fieldErrors.email = "Email cannot be empty";
-  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fieldErrors.email = "Enter a valid email";
   if (!areaLocation) fieldErrors.area_location = "Area / location cannot be empty";
   if (!businessName) fieldErrors.business_name = "Business name cannot be empty";
-  if (!profession) fieldErrors.profession = "Profession cannot be empty";
-  if (!categoryId) fieldErrors.category_id = "Choose a category";
+
+  if (isStall) {
+    if (!STALL_CATEGORY_SLUGS.includes(stallCategory))
+      fieldErrors.stall_category = "Choose a stall category";
+  } else {
+    if (!email) fieldErrors.email = "Email cannot be empty";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fieldErrors.email = "Enter a valid email";
+    if (!profession) fieldErrors.profession = "Profession cannot be empty";
+    if (!categoryId) fieldErrors.category_id = "Choose a category";
+  }
 
   if (Object.keys(fieldErrors).length > 0) {
     return { status: "error", message: "Please fix the highlighted fields.", fieldErrors };
@@ -68,12 +89,6 @@ export async function updateApplicant(
 
   // Stamp the moment payment was marked received, and clear it if the status
   // is walked back, so the timestamp never contradicts the status.
-  const { data: current } = await supabase
-    .from("applicants")
-    .select("status, payment_received_at")
-    .eq("id", id)
-    .maybeSingle();
-
   const wasPaid = current?.status === "payment_received" || current?.status === "promoted";
   const isPaid = nextStatus === "payment_received" || nextStatus === "promoted";
 
@@ -81,30 +96,49 @@ export async function updateApplicant(
   if (isPaid && !wasPaid) paymentReceivedAt = new Date().toISOString();
   if (!isPaid) paymentReceivedAt = null;
 
+  // Everything both kinds of entry have in common.
+  const shared = {
+    full_name: fullName,
+    whatsapp_number: whatsapp,
+    area_location: areaLocation,
+    business_name: businessName,
+    years_in_business: nullableText(formData, "years_in_business"),
+    social_instagram: normalizeUrl(nullableText(formData, "social_instagram")),
+    social_facebook: normalizeUrl(nullableText(formData, "social_facebook")),
+    social_website: normalizeUrl(nullableText(formData, "social_website")),
+    social_whatsapp: normalizeUrl(nullableText(formData, "social_whatsapp")),
+    wants_whatsapp_updates: formData.get("wants_whatsapp_updates") === "on",
+    status: nextStatus,
+    payment_received_at: paymentReceivedAt,
+    admin_notes: nullableText(formData, "admin_notes"),
+  };
+
+  const specific = isStall
+    ? {
+        stall_category: stallCategory,
+        business_about: nullableText(formData, "business_about"),
+        stall_products: nullableText(formData, "stall_products"),
+        stall_requirements: nullableText(formData, "stall_requirements"),
+        stall_goals: formData
+          .getAll("stall_goals")
+          .filter((g): g is string => typeof g === "string"),
+        // The stall form has no separate profession question; the brand name
+        // stands for both, and it must not fall out of sync when edited.
+        profession: businessName,
+      }
+    : {
+        email: email.toLowerCase(),
+        profession,
+        category_id: categoryId,
+        category_other: nullableText(formData, "category_other"),
+        business_journey: nullableText(formData, "business_journey"),
+        proudest_achievement: nullableText(formData, "proudest_achievement"),
+        interested_in_nomination: text(formData, "interested_in_nomination") || "maybe",
+      };
+
   const { error } = await supabase
     .from("applicants")
-    .update({
-      full_name: fullName,
-      whatsapp_number: whatsapp,
-      email: email.toLowerCase(),
-      area_location: areaLocation,
-      business_name: businessName,
-      profession,
-      category_id: categoryId,
-      category_other: nullableText(formData, "category_other"),
-      years_in_business: nullableText(formData, "years_in_business"),
-      business_journey: nullableText(formData, "business_journey"),
-      proudest_achievement: nullableText(formData, "proudest_achievement"),
-      social_instagram: normalizeUrl(nullableText(formData, "social_instagram")),
-      social_facebook: normalizeUrl(nullableText(formData, "social_facebook")),
-      social_website: normalizeUrl(nullableText(formData, "social_website")),
-      social_whatsapp: normalizeUrl(nullableText(formData, "social_whatsapp")),
-      interested_in_nomination: text(formData, "interested_in_nomination") || "maybe",
-      wants_whatsapp_updates: formData.get("wants_whatsapp_updates") === "on",
-      status: nextStatus,
-      payment_received_at: paymentReceivedAt,
-      admin_notes: nullableText(formData, "admin_notes"),
-    })
+    .update({ ...shared, ...specific })
     .eq("id", id);
 
   if (error) {

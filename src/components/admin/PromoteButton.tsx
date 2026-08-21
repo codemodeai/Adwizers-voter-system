@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 
 import { promoteToNominee } from "@/app/admin/(dashboard)/applicants/actions";
-import type { ApplicantStatus } from "@/lib/types";
+import type { ApplicantStatus, FormType } from "@/lib/types";
 
 /**
  * "Promote to Nominee" (Final Plan section 4).
@@ -16,10 +16,14 @@ export function PromoteButton({
   id,
   status,
   size = "sm",
+  formType = "award",
 }: {
   id: string;
   status: ApplicantStatus;
   size?: "sm" | "md";
+  /** Nominees come out of the awards. A stall booking has nowhere to be
+   *  promoted to, so the button simply is not there. */
+  formType?: FormType;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -37,6 +41,10 @@ export function PromoteButton({
   }
 
   const pad = size === "md" ? "px-4 py-2.5 text-sm" : "px-2.5 py-1.5 text-[12px]";
+
+  // Nominees come out of the awards. A stall booking has nowhere to be
+  // promoted to, so the button simply is not there.
+  if (formType === "stall") return null;
 
   if (promoted) {
     return (

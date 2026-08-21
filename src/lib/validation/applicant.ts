@@ -1,6 +1,12 @@
 import { z } from "zod";
 
 import { REGISTRATION_FEE_DISPLAY } from "@/lib/fee";
+import {
+  optionalUrl,
+  optionalWhatsappUrl,
+  phone,
+  trimmed,
+} from "@/lib/validation/shared";
 
 /** Category slug that unlocks the free-text "please specify" field. */
 export const OTHER_CATEGORY_SLUG = "other";
@@ -16,8 +22,6 @@ export const MAX_LOGO_SOURCE_BYTES = 25 * 1024 * 1024;
 
 export const ACCEPTED_LOGO_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 
-const trimmed = z.string().trim();
-
 const requiredText = (label: string, max = 200) =>
   trimmed.min(1, `${label} is required`).max(max, `${label} must be under ${max} characters`);
 
@@ -26,54 +30,6 @@ const optionalText = (max = 2000) =>
     .max(max, `Please keep this under ${max} characters`)
     .optional()
     .transform((v) => (v ? v : undefined));
-
-/**
- * Accepts what people actually type -- "+91 98765 43210", "09876543210" --
- * and stores the digits with a leading + if one was given.
- */
-const phone = trimmed
-  .min(1, "WhatsApp number is required")
-  .transform((v) => {
-    const digits = v.replace(/[^\d]/g, "");
-    return v.trim().startsWith("+") ? `+${digits}` : digits;
-  })
-  .refine((v) => {
-    const digits = v.replace(/\D/g, "");
-    return digits.length >= 10 && digits.length <= 15;
-  }, "Enter a valid WhatsApp number (10-15 digits)");
-
-/** People paste "instagram.com/awe" as often as a full URL; accept both. */
-const optionalUrl = trimmed
-  .max(500, "That link is too long")
-  .optional()
-  .transform((v) => {
-    if (!v) return undefined;
-    return /^https?:\/\//i.test(v) ? v : `https://${v}`;
-  })
-  .refine((v) => {
-    if (!v) return true;
-    try {
-      const host = new URL(v).hostname.toLowerCase();
-      // A bare word or a phone number parses as a URL quite happily, so the
-      // host has to look like a real domain before we call this a link.
-      return /^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$/.test(host);
-    } catch {
-      return false;
-    }
-  }, "Enter a valid link");
-
-/**
- * The WhatsApp field asks for a link, but a number is what people reach for --
- * the form turns one into a wa.me link as they type, and this does the same
- * for anything that arrives without having been through it.
- */
-const optionalWhatsappUrl = z.preprocess((raw) => {
-  if (typeof raw !== "string") return raw;
-  const value = raw.trim();
-  if (!/^\+?[\d\s()-]+$/.test(value)) return raw;
-  const digits = value.replace(/\D/g, "");
-  return digits.length >= 11 && digits.length <= 15 ? `https://wa.me/${digits}` : raw;
-}, optionalUrl);
 
 const acceptedCheckbox = (message: string) =>
   z.coerce.boolean().refine((v) => v === true, message);

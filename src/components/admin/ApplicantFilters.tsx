@@ -22,6 +22,8 @@ export function ApplicantFilters({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState(defaultSearch);
+  /** Clearing the filters must not also drop the tab. */
+  const form = searchParams.get("form");
   const firstRender = useRef(true);
 
   function apply(next: Record<string, string>) {
@@ -84,7 +86,10 @@ export function ApplicantFilters({
           </select>
         </div>
 
-        <div>
+        {/* The stall list is sorted by a different category question and is
+          * capped at twenty entries anyway, so it comes through with no
+          * category list and the filter simply does not appear. */}
+        <div className={categories.length === 0 ? "hidden" : undefined}>
           <label htmlFor="filter-category" className="sr-only">
             Filter by category
           </label>
@@ -106,7 +111,7 @@ export function ApplicantFilters({
 
       {hasFilters && (
         <Link
-          href={pathname}
+          href={form ? `${pathname}?form=${form}` : pathname}
           className="shrink-0 self-start text-[13px] font-medium text-magenta-royal
                      hover:underline sm:self-center"
         >

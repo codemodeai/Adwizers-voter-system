@@ -51,16 +51,18 @@ export function ApplicantCard({
           {categoryLabel(a)}
         </p>
         <p className="truncate tabular-nums text-ink-muted">{a.whatsapp_number}</p>
-        <p className="truncate text-ink-muted" title={a.email}>
-          {a.email}
-        </p>
+        {a.email && (
+          <p className="truncate text-ink-muted" title={a.email}>
+            {a.email}
+          </p>
+        )}
         <FeeBadge agreedAt={a.fee_agreed_at} amount={a.fee_amount_inr} compact />
       </div>
 
       <div className="mt-auto flex items-center justify-between gap-2 border-t border-line bg-canvas px-3 py-2.5">
         <PaymentToggle id={a.id} status={a.status} />
         <div className="flex items-center gap-2.5">
-          <PromoteButton id={a.id} status={a.status} />
+          <PromoteButton id={a.id} status={a.status} formType={a.form_type} />
           <Link
             href={`/admin/applicants/${a.id}`}
             className="text-[12px] font-semibold text-magenta-royal hover:underline"

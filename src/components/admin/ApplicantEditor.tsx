@@ -14,7 +14,8 @@ import {
 } from "@/app/admin/(dashboard)/applicants/[id]/state";
 import { FeeBadge, formatFee } from "@/components/admin/FeeBadge";
 import { Button } from "@/components/ui/Button";
-import { Field, inputClass, selectClass, textareaClass } from "@/components/ui/Field";
+import { Field, Label, inputClass, selectClass, textareaClass } from "@/components/ui/Field";
+import { STALL_CATEGORIES, STALL_GOALS } from "@/lib/carnival";
 import { LogoField } from "@/components/ui/LogoField";
 import {
   APPLICANT_STATUSES,
@@ -94,6 +95,10 @@ export function ApplicantEditor({
   const [logoState, logoAction] = useActionState(updateLogo, EMPTY_LOGO_STATE);
   const err = state.fieldErrors ?? {};
 
+  // A stall booking answers a different set of questions, so the panels below
+  // swap rather than showing an award form full of blanks.
+  const isStall = a.form_type === "stall";
+
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
       <form action={formAction} className="space-y-5">
@@ -125,21 +130,23 @@ export function ApplicantEditor({
                 className={inputClass}
               />
             </Field>
-            <Field
-              label="Email"
-              htmlFor="email"
-              required
-              error={err.email}
-              hint="Nominee notification is sent here."
-            >
-              <input
-                id="email"
-                name="email"
-                type="email"
-                defaultValue={a.email}
-                className={inputClass}
-              />
-            </Field>
+            {!isStall && (
+              <Field
+                label="Email"
+                htmlFor="email"
+                required
+                error={err.email}
+                hint="Nominee notification is sent here."
+              >
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  defaultValue={a.email ?? ""}
+                  className={inputClass}
+                />
+              </Field>
+            )}
             <Field
               label="Area / Location"
               htmlFor="area_location"
@@ -171,41 +178,71 @@ export function ApplicantEditor({
                 className={inputClass}
               />
             </Field>
-            <Field label="Profession" htmlFor="profession" required error={err.profession}>
-              <input
-                id="profession"
-                name="profession"
-                defaultValue={a.profession}
-                className={inputClass}
-              />
-            </Field>
-            <Field label="Award Category" htmlFor="category_id" required error={err.category_id}>
-              <select
-                id="category_id"
-                name="category_id"
-                defaultValue={String(a.category_id)}
-                className={selectClass}
+            {isStall ? (
+              <Field
+                label="Stall Category"
+                htmlFor="stall_category"
+                required
+                error={err.stall_category}
+                hint="Each category carries one stall."
               >
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                    {c.is_active ? "" : " (inactive)"}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field
-              label='If "Other" — specify'
-              htmlFor="category_other"
-              hint="Only used when the category is Other."
-            >
-              <input
-                id="category_other"
-                name="category_other"
-                defaultValue={a.category_other ?? ""}
-                className={inputClass}
-              />
-            </Field>
+                <select
+                  id="stall_category"
+                  name="stall_category"
+                  defaultValue={a.stall_category ?? ""}
+                  className={selectClass}
+                >
+                  {STALL_CATEGORIES.map((c) => (
+                    <option key={c.value} value={c.value}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            ) : (
+              <>
+                <Field label="Profession" htmlFor="profession" required error={err.profession}>
+                  <input
+                    id="profession"
+                    name="profession"
+                    defaultValue={a.profession}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field
+                  label="Award Category"
+                  htmlFor="category_id"
+                  required
+                  error={err.category_id}
+                >
+                  <select
+                    id="category_id"
+                    name="category_id"
+                    defaultValue={a.category_id === null ? "" : String(a.category_id)}
+                    className={selectClass}
+                  >
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                        {c.is_active ? "" : " (inactive)"}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field
+                  label='If "Other" — specify'
+                  htmlFor="category_other"
+                  hint="Only used when the category is Other."
+                >
+                  <input
+                    id="category_other"
+                    name="category_other"
+                    defaultValue={a.category_other ?? ""}
+                    className={inputClass}
+                  />
+                </Field>
+              </>
+            )}
             <Field label="Years in Business" htmlFor="years_in_business">
               <input
                 id="years_in_business"
@@ -217,26 +254,88 @@ export function ApplicantEditor({
           </div>
         </Panel>
 
-        <Panel title="Story">
-          <div className="space-y-5">
-            <Field label="Business Journey" htmlFor="business_journey">
-              <textarea
-                id="business_journey"
-                name="business_journey"
-                defaultValue={a.business_journey ?? ""}
-                className={textareaClass}
-              />
-            </Field>
-            <Field label="Proudest Achievement" htmlFor="proudest_achievement">
-              <textarea
-                id="proudest_achievement"
-                name="proudest_achievement"
-                defaultValue={a.proudest_achievement ?? ""}
-                className={textareaClass}
-              />
-            </Field>
-          </div>
-        </Panel>
+        {isStall ? (
+          <Panel title="Stall">
+            <div className="space-y-5">
+              <Field label="About the Business" htmlFor="business_about">
+                <textarea
+                  id="business_about"
+                  name="business_about"
+                  defaultValue={a.business_about ?? ""}
+                  className={textareaClass}
+                />
+              </Field>
+              <Field
+                label="Products / Services at the Stall"
+                htmlFor="stall_products"
+                hint="What she will display or sell on the day."
+              >
+                <textarea
+                  id="stall_products"
+                  name="stall_products"
+                  defaultValue={a.stall_products ?? ""}
+                  className={textareaClass}
+                />
+              </Field>
+              <Field
+                label="Special Requirements"
+                htmlFor="stall_requirements"
+                hint="Power, extra space, refrigeration -- whatever the stall needs."
+              >
+                <textarea
+                  id="stall_requirements"
+                  name="stall_requirements"
+                  defaultValue={a.stall_requirements ?? ""}
+                  className={textareaClass}
+                />
+              </Field>
+              <fieldset className="space-y-2">
+                <Label>What she wants from the carnival</Label>
+                <div className="grid gap-2.5 sm:grid-cols-2">
+                  {STALL_GOALS.map((goal) => (
+                    <label
+                      key={goal.value}
+                      className="flex cursor-pointer items-center gap-2.5 rounded-lg border
+                                 border-line bg-canvas px-3.5 py-2 text-[13px] text-charcoal
+                                 transition-colors has-checked:border-magenta-royal/50
+                                 has-checked:bg-magenta-soft"
+                    >
+                      <input
+                        type="checkbox"
+                        name="stall_goals"
+                        value={goal.value}
+                        defaultChecked={(a.stall_goals ?? []).includes(goal.value)}
+                        className="size-4 shrink-0 accent-magenta-royal"
+                      />
+                      {goal.label}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            </div>
+          </Panel>
+        ) : (
+          <Panel title="Story">
+            <div className="space-y-5">
+              <Field label="Business Journey" htmlFor="business_journey">
+                <textarea
+                  id="business_journey"
+                  name="business_journey"
+                  defaultValue={a.business_journey ?? ""}
+                  className={textareaClass}
+                />
+              </Field>
+              <Field label="Proudest Achievement" htmlFor="proudest_achievement">
+                <textarea
+                  id="proudest_achievement"
+                  name="proudest_achievement"
+                  defaultValue={a.proudest_achievement ?? ""}
+                  className={textareaClass}
+                />
+              </Field>
+            </div>
+          </Panel>
+        )}
 
         <Panel title="Links">
           <div className="grid gap-5 sm:grid-cols-2">
@@ -293,17 +392,19 @@ export function ApplicantEditor({
                 </select>
               </Field>
 
+              {!isStall && (
               <Field label="Interested in Nomination" htmlFor="interested_in_nomination">
                 <select
                   id="interested_in_nomination"
                   name="interested_in_nomination"
-                  defaultValue={a.interested_in_nomination}
+                  defaultValue={a.interested_in_nomination ?? ""}
                   className={selectClass}
                 >
                   <option value="yes">Yes</option>
                   <option value="maybe">Maybe</option>
                 </select>
               </Field>
+              )}
             </div>
 
             <label className="flex cursor-pointer items-center gap-3 text-sm text-charcoal">
@@ -427,7 +528,9 @@ export function ApplicantEditor({
 
         <Panel title="Consent Record">
           <div className="divide-y divide-line">
-            <ConsentRow label="Nomination declaration" at={a.nomination_declaration_at} />
+            {!isStall && (
+              <ConsentRow label="Nomination declaration" at={a.nomination_declaration_at} />
+            )}
             <ConsentRow label="Terms &amp; conditions" at={a.terms_accepted_at} />
             <ConsentRow label="Communication consent" at={a.communication_consent_at} />
             <ConsentRow label="Payment received" at={a.payment_received_at} />

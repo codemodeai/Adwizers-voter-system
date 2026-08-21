@@ -2,7 +2,12 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import type { ApplicantWithCategory, ApplicantStatus, Category } from "@/lib/types";
+import type {
+  ApplicantWithCategory,
+  ApplicantStatus,
+  Category,
+  FormType,
+} from "@/lib/types";
 
 /** Table rows are taller, so it pages at ten; the compact tiles fit a clean
  *  3x4 grid at twelve. */
@@ -18,6 +23,9 @@ function sanitizeSearch(value: string): string {
 }
 
 export type ApplicantQuery = {
+  /** Which tab is open. Award and stall entries share the table, so every
+   *  listing is scoped to one of them. */
+  formType: FormType;
   search?: string;
   status?: ApplicantStatus;
   categoryId?: number;
@@ -34,6 +42,7 @@ export async function listApplicants(params: ApplicantQuery) {
   let query = supabase
     .from("applicants")
     .select(SELECT, { count: "exact" })
+    .eq("form_type", params.formType)
     .order("created_at", { ascending: false })
     .range(from, from + pageSize - 1);
 
@@ -81,9 +90,14 @@ export async function listCategories(): Promise<Category[]> {
 }
 
 /** Counts per status for the dashboard summary tiles. */
-export async function applicantCounts(): Promise<Record<ApplicantStatus | "total", number>> {
+export async function applicantCounts(
+  formType: FormType,
+): Promise<Record<ApplicantStatus | "total", number>> {
   const supabase = await createClient();
-  const { data } = await supabase.from("applicants").select("status");
+  const { data } = await supabase
+    .from("applicants")
+    .select("status")
+    .eq("form_type", formType);
   const rows = (data ?? []) as { status: ApplicantStatus }[];
 
   const counts = {

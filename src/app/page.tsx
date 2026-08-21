@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { DarkShell } from "@/components/DarkShell";
+import { CARNIVAL_EVENT } from "@/lib/carnival";
 
 export default function HomePage() {
   return (
@@ -31,14 +32,32 @@ export default function HomePage() {
           nominees on their category&apos;s public voting page.
         </p>
 
-        <Link
-          href="/register"
-          className="mt-8 inline-flex items-center justify-center rounded-lg bg-accent
-                     px-8 py-3.5 text-base font-semibold text-white shadow-lg
-                     shadow-accent/25 transition-colors hover:bg-accent-hover"
-        >
-          Enter the Awards
-        </Link>
+        {/* Two ways in, and they are different commitments: the awards are a
+          * nomination, the carnival is a stall you book. The awards keep the
+          * solid button because that is what this page is titled about. */}
+        <div className="mt-8 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+          <Link
+            href="/register"
+            className="inline-flex items-center justify-center rounded-lg bg-accent
+                       px-8 py-3.5 text-base font-semibold text-white shadow-lg
+                       shadow-accent/25 transition-colors hover:bg-accent-hover"
+          >
+            Enter the Awards
+          </Link>
+
+          <Link
+            href="/carnival"
+            className="inline-flex items-center justify-center rounded-lg border border-gold/40
+                       bg-white/5 px-8 py-3.5 text-base font-semibold text-heading
+                       transition-colors hover:border-gold hover:bg-white/10"
+          >
+            Business Carnival 2026
+          </Link>
+        </div>
+
+        <p className="mt-3.5 text-[13px] text-ink-muted">
+          {CARNIVAL_EVENT.spaces} at the carnival — {CARNIVAL_EVENT.date}.
+        </p>
 
         <div
           aria-hidden="true"

@@ -4,84 +4,75 @@ import Image from "next/image";
 import { useActionState, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 
+import { Arrow } from "@/components/ui/Arrow";
 import { Button } from "@/components/ui/Button";
+import { CheckboxRow } from "@/components/ui/CheckboxRow";
 import {
   Field,
-  FieldError,
   Label,
   inputClass,
   selectClass,
   textareaClass,
 } from "@/components/ui/Field";
-import { Arrow } from "@/components/ui/Arrow";
-import { CheckboxRow } from "@/components/ui/CheckboxRow";
 import { checkLink, LinkField } from "@/components/ui/LinkField";
 import { LogoField } from "@/components/ui/LogoField";
 import { Stepper } from "@/components/ui/Stepper";
 import {
-  FEE_INCLUDES,
-  REGISTRATION_FEE_DISPLAY,
-  WINNER_TIERS,
-} from "@/lib/fee";
-import type { Category } from "@/lib/types";
-import {
-  ACCEPTED_LOGO_TYPES,
-  MAX_LOGO_BYTES,
-  OTHER_CATEGORY_SLUG,
-} from "@/lib/validation/applicant";
-import { submitApplication } from "./actions";
-import { EMPTY_REGISTER_STATE } from "./state";
+  CARNIVAL_EVENT,
+  STALL_CATEGORIES,
+  STALL_EXTRA_VALUE,
+  STALL_FEE_DISPLAY,
+  STALL_GOALS,
+  STALL_INCLUDES,
+} from "@/lib/carnival";
+import { ACCEPTED_LOGO_TYPES, MAX_LOGO_BYTES } from "@/lib/validation/applicant";
+import { submitStallBooking } from "./actions";
+import { EMPTY_CARNIVAL_STATE } from "./state";
 
 type Errors = Record<string, string>;
 
 const STEPS = [
   {
     title: "About You",
-    description: "How we reach you about your nomination.",
+    description: "How we reach you about your stall.",
     image: "/steps/step-1.jpg",
-    caption: "Every entry starts with a name.",
-    fields: ["fullName", "whatsappNumber", "email", "areaLocation"],
+    caption: "Every stall starts with a name.",
+    fields: ["fullName", "whatsappNumber", "areaLocation"],
   },
   {
     title: "Your Business",
-    description: "This decides which award category you compete in.",
+    description: "What you do, and which space you belong in.",
     image: "/steps/step-2.jpg",
     caption: "The thing you built, in your own words.",
-    fields: ["businessName", "profession", "categoryId", "categoryOther", "yearsInBusiness"],
+    fields: ["businessName", "businessAbout", "stallCategory", "yearsInBusiness"],
   },
   {
-    title: "Your Story",
-    description: "This is what the judges and voters read. Take your time here.",
+    title: "Your Stall",
+    description: "What you will bring on the day, and what you need from us.",
     image: "/steps/step-3.jpg",
-    caption: "Where it began, and how far it has come.",
-    fields: ["businessJourney", "proudestAchievement"],
+    caption: "What the table will hold.",
+    fields: ["stallProducts", "stallRequirements", "stallGoals"],
   },
   {
     title: "Links & Photo",
-    description: "Shown on your nominee card if you are selected.",
+    description: "Shown when we promote the carnival line-up.",
     image: "/steps/step-4.jpg",
-    caption: "How the world will find you.",
+    caption: "How the crowd will find you.",
     fields: ["socialInstagram", "socialFacebook", "socialWebsite", "socialWhatsapp", "logo"],
   },
   {
-    title: "Fee & Agreement",
-    description: `What the ${REGISTRATION_FEE_DISPLAY} award registration covers.`,
+    title: "Stall Fee & Agreement",
+    description: `What the ${STALL_FEE_DISPLAY} business space covers.`,
     image: "/steps/success.jpg",
-    caption: "What the fee brings with it.",
+    caption: "What the space brings with it.",
     fields: ["feeAgreed"],
   },
   {
-    title: "Confirm & Submit",
-    description: "The last few details, then you are done.",
+    title: "Confirm & Book",
+    description: "The last few details, then your space is requested.",
     image: "/steps/step-5.jpg",
     caption: "One last look, then it is with us.",
-    fields: [
-      "interestedInNomination",
-      "wantsWhatsappUpdates",
-      "nominationDeclaration",
-      "termsAccepted",
-      "communicationConsent",
-    ],
+    fields: ["termsAccepted", "communicationConsent"],
   },
 ];
 
@@ -94,7 +85,7 @@ const FIELD_STEP: Record<string, number> = Object.fromEntries(
  * Client-side mirror of the Zod rules, run per step so nobody reaches the end
  * only to be bounced. The server still re-validates everything on submit.
  */
-function validateStep(index: number, fd: FormData, isOther: boolean): Errors {
+function validateStep(index: number, fd: FormData): Errors {
   const errors: Errors = {};
   const value = (name: string) => String(fd.get(name) ?? "").trim();
 
@@ -111,20 +102,11 @@ function validateStep(index: number, fd: FormData, isOther: boolean): Errors {
     if (!phone) errors.whatsappNumber = "WhatsApp number is required";
     else if (digits.length < 10 || digits.length > 15)
       errors.whatsappNumber = "Enter a valid WhatsApp number (10-15 digits)";
-
-    const email = value("email");
-    if (!email) errors.email = "Email address is required";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-      errors.email = "Enter a valid email address";
   }
 
   if (index === 1) {
     require("businessName", "Business / brand name is required");
-    require("profession", "Business / profession is required");
-    require("categoryId", "Please choose a business category");
-    if (isOther && !value("categoryOther")) {
-      errors.categoryOther = "Please tell us which category you belong to";
-    }
+    require("stallCategory", "Please choose your business category");
   }
 
   if (index === 3) {
@@ -147,29 +129,22 @@ function validateStep(index: number, fd: FormData, isOther: boolean): Errors {
   }
 
   if (index === 4 && fd.get("feeAgreed") !== "on") {
-    errors.feeAgreed = `Please confirm you agree to pay the ${REGISTRATION_FEE_DISPLAY} registration fee`;
+    errors.feeAgreed = `Please confirm you agree to pay the ${STALL_FEE_DISPLAY} stall fee`;
   }
 
-  if (index === 5) {
-    require("interestedInNomination", "Please tell us if you are interested in nomination");
-    if (fd.get("nominationDeclaration") !== "on")
-      errors.nominationDeclaration = "Please accept the nomination declaration";
-    if (fd.get("termsAccepted") !== "on")
-      errors.termsAccepted = "Please accept the terms & conditions";
+  if (index === 5 && fd.get("termsAccepted") !== "on") {
+    errors.termsAccepted = "Please accept the terms & conditions";
   }
 
   return errors;
 }
 
 /**
- * Left rail. All five images are stacked and cross-faded rather than swapped,
- * so moving between steps reads as one continuous scene instead of a reload.
+ * Left rail. The images are stacked and cross-faded rather than swapped, so
+ * moving between steps reads as one continuous scene instead of a reload.
  */
 function ImagePanel({ step }: { step: number }) {
   return (
-    // On phones this becomes a short banner above the fields rather than
-    // disappearing -- every step keeps its artwork, but it costs ~160px of
-    // vertical space instead of half the screen.
     <div className="noise noise-strong relative isolate h-40 overflow-hidden bg-purple-royal sm:h-52 md:h-auto">
       {STEPS.map((s, i) => (
         <Image
@@ -181,15 +156,12 @@ function ImagePanel({ step }: { step: number }) {
           priority={i === 0}
           sizes="(min-width: 768px) 42vw, 100vw"
           className={
-            // The art is 2:3, so a wide banner crop is anchored high to keep
-            // faces in frame; the tall desktop panel can sit centred.
             "object-cover object-[center_28%] transition-all duration-[900ms] ease-out md:object-center " +
             (i === step ? "scale-100 opacity-100" : "scale-105 opacity-0")
           }
         />
       ))}
 
-      {/* Keeps the caption legible whatever the artwork underneath is doing. */}
       <div
         aria-hidden="true"
         className="absolute inset-0 bg-gradient-to-t from-[#0f0016] via-[#0f0016]/25 to-transparent"
@@ -199,9 +171,6 @@ function ImagePanel({ step }: { step: number }) {
         className="absolute inset-0 bg-gradient-to-br from-purple-royal/45 via-transparent to-magenta-royal/25"
       />
 
-      {/* Overlay copy is desktop-only: on the short mobile banner it covers the
-        * artwork and just repeats the "Step 1 of 5 / About You" heading that
-        * sits directly beneath it. */}
       <div className="relative z-10 hidden h-full flex-col justify-end p-5 md:flex md:p-7 lg:p-9">
         <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-gold">
           Step {step + 1} — {STEPS[step].title}
@@ -224,11 +193,11 @@ function SubmitButton() {
       {pending ? (
         <>
           <span className="size-3.5 animate-spin rounded-full border-2 border-white/35 border-t-white" />
-          Submitting…
+          Booking…
         </>
       ) : (
         <>
-          Submit Application
+          Book My Space
           <Arrow />
         </>
       )}
@@ -236,8 +205,8 @@ function SubmitButton() {
   );
 }
 
-export function RegistrationForm({ categories }: { categories: Category[] }) {
-  const [state, formAction] = useActionState(submitApplication, EMPTY_REGISTER_STATE);
+export function StallForm() {
+  const [state, formAction] = useActionState(submitStallBooking, EMPTY_CARNIVAL_STATE);
   const formRef = useRef<HTMLFormElement>(null);
   const topRef = useRef<HTMLDivElement>(null);
 
@@ -246,16 +215,12 @@ export function RegistrationForm({ categories }: { categories: Category[] }) {
   const [clientErrors, setClientErrors] = useState<Errors>({});
 
   const v = state.values ?? {};
-  const [categoryId, setCategoryId] = useState(v.categoryId ?? "");
-  const [whatsapp, setWhatsapp] = useState(v.whatsappNumber ?? "");
+  const chosenGoals = state.goals ?? [];
 
-  const isOther = categories.find((c) => String(c.id) === categoryId)?.slug === OTHER_CATEGORY_SLUG;
   const errors: Errors = { ...(state.fieldErrors ?? {}), ...clientErrors };
   const isLast = step === STEPS.length - 1;
 
   // A rejected submit should land on the step that actually has the problem.
-  // Adjusting during render (rather than in an effect) keeps it to a single
-  // pass -- the user never sees the wrong step flash first.
   const [seenState, setSeenState] = useState(state);
   if (state !== seenState) {
     setSeenState(state);
@@ -279,7 +244,7 @@ export function RegistrationForm({ categories }: { categories: Category[] }) {
 
   function handleNext() {
     if (!formRef.current) return;
-    const found = validateStep(step, new FormData(formRef.current), isOther);
+    const found = validateStep(step, new FormData(formRef.current));
     if (Object.keys(found).length > 0) {
       setClientErrors(found);
       return;
@@ -302,7 +267,6 @@ export function RegistrationForm({ categories }: { categories: Category[] }) {
           ref={formRef}
           action={formAction}
           noValidate
-          // Enter should advance the wizard, not fire a half-filled submit.
           onKeyDown={(e) => {
             const target = e.target as HTMLElement;
             if (e.key === "Enter" && target.tagName !== "TEXTAREA" && !isLast) {
@@ -363,8 +327,7 @@ export function RegistrationForm({ categories }: { categories: Category[] }) {
                 <input
                   id="whatsappNumber"
                   name="whatsappNumber"
-                  value={whatsapp}
-                  onChange={(e) => setWhatsapp(e.target.value)}
+                  defaultValue={v.whatsappNumber}
                   inputMode="tel"
                   autoComplete="tel"
                   className={inputClass}
@@ -373,36 +336,18 @@ export function RegistrationForm({ categories }: { categories: Category[] }) {
               </Field>
 
               <Field
-                label="Email Address"
-                htmlFor="email"
-                required
-                error={errors.email}
-                hint="Your nomination result is sent here."
-              >
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  defaultValue={v.email}
-                  autoComplete="email"
-                  className={inputClass}
-                  placeholder="e.g. you@example.com"
-                />
-              </Field>
-
-              <Field
                 label="Area / Location"
                 htmlFor="areaLocation"
                 required
                 error={errors.areaLocation}
+                className="sm:col-span-2"
               >
                 <input
                   id="areaLocation"
                   name="areaLocation"
                   defaultValue={v.areaLocation}
-                  autoComplete="address-level2"
                   className={inputClass}
-                  placeholder="e.g. Coimbatore"
+                  placeholder="e.g. Kumbakonam, Thanjavur"
                 />
               </Field>
             </div>
@@ -418,49 +363,9 @@ export function RegistrationForm({ categories }: { categories: Category[] }) {
                   id="businessName"
                   name="businessName"
                   defaultValue={v.businessName}
-                  autoComplete="organization"
                   className={inputClass}
-                  placeholder="e.g. Priya's Handmade Jewellery"
+                  placeholder="e.g. Priya's Kitchen"
                 />
-              </Field>
-
-              <Field
-                label="Business / Profession"
-                htmlFor="profession"
-                required
-                error={errors.profession}
-              >
-                <input
-                  id="profession"
-                  name="profession"
-                  defaultValue={v.profession}
-                  autoComplete="organization-title"
-                  className={inputClass}
-                  placeholder="e.g. Handmade jewellery maker"
-                />
-              </Field>
-
-              <Field
-                label="Business Category"
-                htmlFor="categoryId"
-                required
-                error={errors.categoryId}
-                hint="You will be judged in this category."
-              >
-                <select
-                  id="categoryId"
-                  name="categoryId"
-                  value={categoryId}
-                  onChange={(e) => setCategoryId(e.target.value)}
-                  className={selectClass}
-                >
-                  <option value="">Select category</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
               </Field>
 
               <Field label="Years in Business" htmlFor="yearsInBusiness">
@@ -473,49 +378,102 @@ export function RegistrationForm({ categories }: { categories: Category[] }) {
                 />
               </Field>
 
-              {isOther && (
-                <Field
-                  label="Please specify your category"
-                  htmlFor="categoryOther"
-                  required
-                  error={errors.categoryOther}
-                  className="sm:col-span-2"
+              <Field
+                label="Business Category"
+                htmlFor="stallCategory"
+                required
+                error={errors.stallCategory}
+                hint="Each category carries only one stall, so this decides which space you take."
+                className="sm:col-span-2"
+              >
+                <select
+                  id="stallCategory"
+                  name="stallCategory"
+                  defaultValue={v.stallCategory ?? ""}
+                  className={selectClass}
                 >
-                  <input
-                    id="categoryOther"
-                    name="categoryOther"
-                    defaultValue={v.categoryOther}
-                    className={inputClass}
-                    placeholder="Tell us what you do"
-                  />
-                </Field>
-              )}
+                  <option value="" disabled>
+                    Choose your category
+                  </option>
+                  {STALL_CATEGORIES.map((c) => (
+                    <option key={c.value} value={c.value}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field
+                label="About Your Business"
+                htmlFor="businessAbout"
+                hint="A few lines on what you make or do."
+                className="sm:col-span-2"
+              >
+                <textarea
+                  id="businessAbout"
+                  name="businessAbout"
+                  defaultValue={v.businessAbout}
+                  className={textareaClass}
+                  placeholder="What your business is about…"
+                />
+              </Field>
             </div>
 
             <div className={step === 2 ? `space-y-4 sm:space-y-5 ${panel}` : "hidden"}>
               <Field
-                label="Your Business Journey"
-                htmlFor="businessJourney"
-                hint="A short version of how you started and where you are now."
+                label="Products / Services at Your Stall"
+                htmlFor="stallProducts"
+                hint="What you will display or sell on the day."
               >
                 <textarea
-                  id="businessJourney"
-                  name="businessJourney"
-                  defaultValue={v.businessJourney}
+                  id="stallProducts"
+                  name="stallProducts"
+                  defaultValue={v.stallProducts}
                   className={textareaClass}
-                  placeholder="How it began…"
+                  placeholder="e.g. Handmade soaps, gift hampers, custom orders…"
                 />
               </Field>
 
-              <Field label="Your Proudest Achievement" htmlFor="proudestAchievement">
+              <Field
+                label="Special Requirements"
+                htmlFor="stallRequirements"
+                hint="Anything your stall needs — a power point, extra table space, refrigeration. Leave it empty if nothing comes to mind."
+              >
                 <textarea
-                  id="proudestAchievement"
-                  name="proudestAchievement"
-                  defaultValue={v.proudestAchievement}
+                  id="stallRequirements"
+                  name="stallRequirements"
+                  defaultValue={v.stallRequirements}
                   className={textareaClass}
-                  placeholder="The moment you are most proud of…"
+                  placeholder="e.g. A plug point for my display lights"
                 />
               </Field>
+
+              <fieldset className="space-y-2">
+                <Label>What do you want from the carnival?</Label>
+                <p className="text-[13px] leading-snug text-ink-muted">
+                  Pick as many as apply — it tells us how to promote your stall.
+                </p>
+                <div className="grid gap-2.5 sm:grid-cols-2">
+                  {STALL_GOALS.map((goal) => (
+                    <label
+                      key={goal.value}
+                      className="flex cursor-pointer items-center gap-2.5 rounded-lg border
+                                 border-line bg-raised px-4 py-2.5 text-sm text-ink
+                                 transition-colors hover:border-accent/40
+                                 has-checked:border-accent has-checked:bg-accent-soft"
+                    >
+                      <input
+                        type="checkbox"
+                        name="stallGoals"
+                        value={goal.value}
+                        defaultChecked={chosenGoals.includes(goal.value)}
+                        className="size-4 shrink-0 accent-accent"
+                      />
+                      {goal.label}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
             </div>
 
             <div className={step === 3 ? `grid gap-4 sm:gap-5 sm:grid-cols-2 ${panel}` : "hidden"}>
@@ -552,7 +510,7 @@ export function RegistrationForm({ categories }: { categories: Category[] }) {
               />
 
               <Field
-                label="Logo / Product Photo"
+                label="Business / Product Photo"
                 htmlFor="logo"
                 error={errors.logo}
                 hint="JPG, PNG, or WebP. Large photos are resized automatically, so upload straight from your phone."
@@ -563,47 +521,22 @@ export function RegistrationForm({ categories }: { categories: Category[] }) {
             </div>
 
             <div className={step === 4 ? `space-y-6 ${panel}` : "hidden"}>
-              <FeePanel error={errors.feeAgreed} agreed={v.feeAgreed === "on"} />
+              <StallFeePanel error={errors.feeAgreed} agreed={v.feeAgreed === "on"} />
             </div>
 
             <div className={step === 5 ? `space-y-5 sm:space-y-6 ${panel}` : "hidden"}>
-              <fieldset className="space-y-2">
-                <Label required>Are you interested in being nominated?</Label>
-                <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
-                  {[
-                    { value: "yes", label: "Yes" },
-                    { value: "maybe", label: "Maybe" },
-                  ].map((option) => (
-                    <label
-                      key={option.value}
-                      className="flex cursor-pointer items-center justify-center gap-2.5 rounded-lg
-                                 border border-line bg-raised px-5 py-3 text-sm font-medium
-                                 text-ink transition-colors hover:border-accent/40
-                                 has-checked:border-accent has-checked:bg-accent-soft
-                                 sm:justify-start sm:px-6 sm:py-2.5"
-                    >
-                      <input
-                        type="radio"
-                        name="interestedInNomination"
-                        value={option.value}
-                        defaultChecked={v.interestedInNomination === option.value}
-                        className="size-4 accent-accent"
-                      />
-                      {option.label}
-                    </label>
-                  ))}
-                </div>
-                <FieldError>{errors.interestedInNomination}</FieldError>
-              </fieldset>
-
-              {/* Form 1 Q13 -- a preference, not a declaration, so it stays
-                * outside the declarations block below. */}
-              <CheckboxRow
-                name="wantsWhatsappUpdates"
-                defaultChecked={v.wantsWhatsappUpdates === "on"}
-              >
-                Send me updates about the awards on WhatsApp.
-              </CheckboxRow>
+              <div className="rounded-xl border border-line bg-raised px-4 py-3.5">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">
+                  Your Space
+                </p>
+                <p className="mt-1.5 text-sm leading-relaxed text-ink">
+                  {CARNIVAL_EVENT.date} · {CARNIVAL_EVENT.venue}
+                </p>
+                <p className="mt-1 text-[13px] text-ink-muted">
+                  {CARNIVAL_EVENT.spaces}, and one business to a category — we confirm your
+                  space on WhatsApp.
+                </p>
+              </div>
 
               <div className="space-y-3 border-t border-line pt-6">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">
@@ -611,27 +544,14 @@ export function RegistrationForm({ categories }: { categories: Category[] }) {
                 </p>
 
                 <CheckboxRow
-                  name="nominationDeclaration"
-                  title="Nomination Declaration"
-                  required
-                  error={errors.nominationDeclaration}
-                  defaultChecked={v.nominationDeclaration === "on"}
-                >
-                  I confirm that the information provided is accurate and authorize Adwizers Awards
-                  to use the submitted nominee information, photograph/logo, achievements and social
-                  media links for nomination review, public voting and official promotional
-                  purposes.
-                </CheckboxRow>
-
-                <CheckboxRow
                   name="termsAccepted"
-                  title="Terms & Conditions"
+                  title="Terms &amp; Conditions"
                   required
                   error={errors.termsAccepted}
                   defaultChecked={v.termsAccepted === "on"}
                 >
-                  I agree to the Adwizers Awards nomination, eligibility and voting terms &amp;
-                  conditions.
+                  I confirm the details above are accurate, and I agree to the Adwizers Business
+                  Carnival stall booking terms &amp; conditions.
                 </CheckboxRow>
 
                 <CheckboxRow
@@ -639,8 +559,8 @@ export function RegistrationForm({ categories }: { categories: Category[] }) {
                   title="Communication Consent"
                   defaultChecked={v.communicationConsent === "on"}
                 >
-                  I agree to receive updates regarding my nomination, public voting and Adwizers
-                  Awards event.
+                  I agree to receive updates about my stall booking and the Adwizers Business
+                  Carnival on WhatsApp.
                 </CheckboxRow>
               </div>
             </div>
@@ -678,31 +598,35 @@ export function RegistrationForm({ categories }: { categories: Category[] }) {
 }
 
 /**
- * The fee step. Everything shown here comes from `@/lib/fee`, so the price and
- * the list of what it covers cannot drift between this page and anywhere else
- * the offer is described.
+ * The stall fee step. Everything shown comes from `@/lib/carnival`, so the
+ * price and what it covers cannot drift from the rest of the carnival.
  */
-function FeePanel({ error, agreed }: { error?: string; agreed: boolean }) {
+function StallFeePanel({ error, agreed }: { error?: string; agreed: boolean }) {
   return (
     <>
       <div className="rounded-2xl border border-accent/35 bg-accent-soft px-5 py-6 text-center sm:py-7">
         <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-gold">
-          Award Registration
+          Stall Fee · Business Space
         </p>
         <p className="mt-2 text-5xl font-bold tracking-tight text-heading sm:text-6xl">
-          {REGISTRATION_FEE_DISPLAY}
+          {STALL_FEE_DISPLAY}
         </p>
         <p className="mt-2 text-sm text-ink-muted">
-          One-time fee for your entry to the AWE Awards 2026.
+          One business space at the Adwizers Business Carnival 2026.
         </p>
+        <div className="mt-4 grid gap-1.5 border-t border-accent/25 pt-4 text-[13px] text-ink">
+          <p>{CARNIVAL_EVENT.date}</p>
+          <p>{CARNIVAL_EVENT.venue}</p>
+          <p className="font-semibold text-accent">{CARNIVAL_EVENT.spaces}</p>
+        </div>
       </div>
 
       <section className="space-y-3">
         <h3 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">
-          What {REGISTRATION_FEE_DISPLAY} includes
+          What {STALL_FEE_DISPLAY} includes
         </h3>
         <ul className="grid gap-x-5 gap-y-3 sm:grid-cols-2">
-          {FEE_INCLUDES.map((item) => (
+          {STALL_INCLUDES.map((item) => (
             <li key={item.title} className="flex gap-2.5">
               <svg
                 viewBox="0 0 20 20"
@@ -732,43 +656,35 @@ function FeePanel({ error, agreed }: { error?: string; agreed: boolean }) {
 
       <section className="space-y-3">
         <h3 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">
-          Winner recognition
+          Why take a space
         </h3>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {WINNER_TIERS.map((tier) => (
-            <div
-              key={tier.place}
-              className="rounded-xl border border-line bg-raised px-4 py-3.5"
-            >
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gold">
-                {tier.place}
-              </p>
-              <p className="mt-1 text-base font-semibold text-heading">{tier.award}</p>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {STALL_EXTRA_VALUE.map((item) => (
+            <div key={item.title} className="rounded-xl border border-line bg-raised px-4 py-3.5">
+              <p className="text-sm font-semibold text-heading">{item.title}</p>
+              <p className="mt-1 text-[13px] leading-snug text-ink-muted">{item.detail}</p>
             </div>
           ))}
         </div>
       </section>
 
       <div className="space-y-3 border-t border-line pt-5">
-        {/* Nothing is collected on this form -- the fee is settled with the
-          * team afterwards, which is what the admin payment status tracks. */}
         <p className="text-[13px] leading-snug text-ink-muted">
-          You are not paying anything on this form. Once your entry is reviewed, our team
+          You are not paying anything on this form. Once your space is confirmed, our team
           contacts you on WhatsApp with the payment details.
         </p>
 
         <CheckboxRow
           name="feeAgreed"
-          title="Payment Agreement"
+          title="Stall Fee Agreement"
           required
           error={error}
           defaultChecked={agreed}
         >
-          I agree to pay the {REGISTRATION_FEE_DISPLAY} award registration fee for the AWE Awards
-          2026, and I understand it covers everything listed on this page.
+          I agree to pay the {STALL_FEE_DISPLAY} stall fee for my business space at the Adwizers
+          Business Carnival 2026, and I understand it covers everything listed on this page.
         </CheckboxRow>
       </div>
     </>
   );
 }
-

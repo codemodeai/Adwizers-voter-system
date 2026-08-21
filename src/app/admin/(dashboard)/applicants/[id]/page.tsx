@@ -60,8 +60,12 @@ export default async function ApplicantDetailPage({
           * the Workflow panel: mark payment, then promote. */}
         <div className="flex shrink-0 flex-wrap items-center gap-4 rounded-xl border border-line bg-surface px-4 py-3">
           <PaymentToggle id={applicant.id} status={applicant.status} size="md" showLabel />
-          <span aria-hidden="true" className="h-6 w-px bg-line" />
-          <PromoteButton id={applicant.id} status={applicant.status} size="md" />
+          {applicant.form_type === "award" && (
+            <>
+              <span aria-hidden="true" className="h-6 w-px bg-line" />
+              <PromoteButton id={applicant.id} status={applicant.status} size="md" />
+            </>
+          )}
         </div>
       </div>
 

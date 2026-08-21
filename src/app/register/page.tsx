@@ -44,7 +44,7 @@ export default async function RegisterPage() {
             Enter the Awards
           </h1>
           <p className="mx-auto mt-2.5 max-w-lg text-sm text-ink-muted sm:text-[15px]">
-            Five short steps. Everything you share here is reviewed by our team before nomination.
+            Six short steps. Everything you share here is reviewed by our team before nomination.
           </p>
         </div>
 

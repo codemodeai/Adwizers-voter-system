@@ -1,4 +1,17 @@
+import { stallCategoryLabel } from "@/lib/carnival";
+
 export type ApplicantStatus = "new" | "payment_received" | "promoted" | "rejected";
+
+/** Which entry form a row came from. Award entries are Form 1; stall entries
+ *  are Business Carnival bookings. */
+export type FormType = "award" | "stall";
+
+export const FORM_TYPES: FormType[] = ["award", "stall"];
+
+export const FORM_TYPE_LABEL: Record<FormType, string> = {
+  award: "Award",
+  stall: "Business",
+};
 export type NominationInterest = "yes" | "maybe";
 
 export const APPLICANT_STATUSES: ApplicantStatus[] = [
@@ -42,13 +55,14 @@ export type Category = {
 
 export type Applicant = {
   id: string;
+  form_type: FormType;
   full_name: string;
   whatsapp_number: string;
-  email: string;
+  email: string | null;
   area_location: string;
   business_name: string;
   profession: string;
-  category_id: number;
+  category_id: number | null;
   category_other: string | null;
   years_in_business: string | null;
   business_journey: string | null;
@@ -58,11 +72,16 @@ export type Applicant = {
   social_website: string | null;
   social_whatsapp: string | null;
   logo_path: string | null;
-  interested_in_nomination: NominationInterest;
+  interested_in_nomination: NominationInterest | null;
+  stall_category: string | null;
+  business_about: string | null;
+  stall_products: string | null;
+  stall_requirements: string | null;
+  stall_goals: string[] | null;
   fee_agreed_at: string | null;
   fee_amount_inr: number | null;
   wants_whatsapp_updates: boolean;
-  nomination_declaration_at: string;
+  nomination_declaration_at: string | null;
   terms_accepted_at: string;
   communication_consent_at: string | null;
   status: ApplicantStatus;
@@ -76,8 +95,16 @@ export type ApplicantWithCategory = Applicant & {
   categories: Pick<Category, "id" | "name" | "slug"> | null;
 };
 
-/** Resolves the display category, honouring the "Other" free-text answer. */
+/**
+ * Resolves the display category, honouring the "Other" free-text answer.
+ *
+ * Stall entries answer a different category question with its own eleven
+ * options, so they resolve against that list instead of the award categories.
+ */
 export function categoryLabel(applicant: ApplicantWithCategory): string {
+  if (applicant.form_type === "stall") {
+    return stallCategoryLabel(applicant.stall_category) ?? "Uncategorised";
+  }
   if (applicant.categories?.slug === "other" && applicant.category_other) {
     return `Other -- ${applicant.category_other}`;
   }
