@@ -9,8 +9,8 @@ import { NavLink } from "./NavLink";
  *  inert, so the shape of the finished dashboard is obvious from day one. */
 const MODULES = [
   { href: "/admin/applicants", label: "Applicants", ready: true },
-  { href: "/admin/nominees", label: "Nominees", ready: false },
-  { href: "/admin/categories", label: "Categories", ready: false },
+  { href: "/admin/nominees", label: "Nominees", ready: true },
+  { href: "/admin/categories", label: "Categories", ready: true },
   { href: "/admin/voting", label: "Voting Control", ready: false },
   { href: "/admin/analytics", label: "Analytics", ready: false },
   { href: "/admin/results", label: "Results / Winners", ready: false },
@@ -89,7 +89,7 @@ export function AdminShell({
         <main className="min-w-0 flex-1 px-5 py-7 sm:px-7 lg:px-9">{children}</main>
 
         <footer className="border-t border-line px-5 py-4 text-[12px] text-ink-muted sm:px-7 lg:px-9">
-          Phase 1 · Registration &amp; Applicants ·{" "}
+          Phase 2 · Nominees &amp; Categories ·{" "}
           <Link
             href={formUrl("/register")}
             className="underline underline-offset-2 hover:text-purple-royal"

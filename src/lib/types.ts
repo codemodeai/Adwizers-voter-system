@@ -110,3 +110,45 @@ export function categoryLabel(applicant: ApplicantWithCategory): string {
   }
   return applicant.categories?.name ?? "Uncategorised";
 }
+
+/**
+ * The public face of a promoted applicant (Final Plan sections 4 and 6).
+ *
+ * Deliberately its own row rather than fields on the applicant: the admin
+ * polishes this copy for the voting page, and none of that may reach back into
+ * what she actually submitted on Form 1.
+ */
+export type Nominee = {
+  id: string;
+  applicant_id: string;
+  category_id: number;
+  display_name: string;
+  business_name: string;
+  area_location: string | null;
+  bio: string | null;
+  photo_path: string | null;
+  social_instagram: string | null;
+  social_facebook: string | null;
+  social_website: string | null;
+  social_whatsapp: string | null;
+  is_published: boolean;
+  sort_order: number;
+  notified_at: string | null;
+  notify_email: string | null;
+  notify_error: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type NomineeWithCategory = Nominee & {
+  categories: Pick<Category, "id" | "name" | "slug"> | null;
+};
+
+/** Where a nominee's notification actually got to, for the dashboard badge. */
+export type NotifyState = "sent" | "failed" | "none";
+
+export function notifyState(nominee: Pick<Nominee, "notified_at" | "notify_error">): NotifyState {
+  if (nominee.notified_at) return "sent";
+  if (nominee.notify_error) return "failed";
+  return "none";
+}
