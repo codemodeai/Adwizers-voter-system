@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { CategoryRow } from "@/components/admin/CategoryRow";
+import { CategoryCard } from "@/components/admin/CategoryCard";
 import { NewCategoryForm } from "@/components/admin/NewCategoryForm";
 import { categoryVoteUrl, listCategoriesWithNominees, signNomineePhotos } from "@/lib/nominees";
 import { FORM_ORIGIN } from "@/lib/target";
@@ -14,9 +14,13 @@ export const metadata: Metadata = {
  * Categories (Final Plan section 5) -- and, in practice, the link screen.
  *
  * Section 6 is emphatic that the shareable link is per category and never per
- * nominee, which makes this the page the client actually opens on the day:
- * fourteen links to copy, each showing who is on it. Everything else here
- * (rename, reorder, hide) is secondary to that.
+ * nominee, which makes this the page the client opens on the day: fourteen
+ * links to copy, each showing who is on it.
+ *
+ * Laid out as a card grid rather than a list because the fourteen are peers to
+ * be scanned and picked from, not a ranked sequence to read top to bottom -- a
+ * grid puts four times as many within one glance, and gives each link room to
+ * be a real tap target instead of a word squeezed beside a long URL.
  */
 export default async function CategoriesPage() {
   const groups = await listCategoriesWithNominees();
@@ -26,23 +30,28 @@ export default async function CategoriesPage() {
   );
 
   const totalLive = groups.reduce((sum, g) => sum + (g.is_active ? g.publishedCount : 0), 0);
+  const hiddenCount = groups.filter((g) => !g.is_active).length;
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-purple-royal">Categories</h1>
-        <p className="mt-1 max-w-2xl text-sm text-ink-muted">
-          Each category has one shareable voting link showing every nominee in it — this is the link
-          that gets sent out. Nominees never get a link of their own.
-        </p>
-      </div>
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-purple-royal">Categories</h1>
+          <p className="mt-1 max-w-2xl text-sm text-ink-muted">
+            Each category has one shareable voting link showing every nominee in it — this is the
+            link that gets sent out. Nominees never get a link of their own.
+          </p>
+          <p className="mt-2 text-[13px] text-ink-muted">
+            <span className="font-semibold text-charcoal">{groups.length}</span> categories ·{" "}
+            <span className="font-semibold text-magenta-royal">{totalLive}</span> nominee
+            {totalLive === 1 ? "" : "s"} live
+            {hiddenCount > 0 && ` · ${hiddenCount} category hidden`}
+          </p>
+        </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-[13px] text-ink-muted">
-          {groups.length} categories · {totalLive} nominee{totalLive === 1 ? "" : "s"} live across
-          them
-        </p>
-        <NewCategoryForm />
+        <div className="pt-1">
+          <NewCategoryForm />
+        </div>
       </div>
 
       {/* Without FORM_ORIGIN the links below are relative paths, which are
@@ -55,30 +64,28 @@ export default async function CategoriesPage() {
         </div>
       )}
 
-      <div className="overflow-hidden rounded-xl border border-line bg-surface">
-        <ul className="divide-y divide-line">
-          {groups.map((group, index) => (
-            <CategoryRow
-              key={group.id}
-              id={group.id}
-              name={group.name}
-              slug={group.slug}
-              isActive={group.is_active}
-              voteUrl={categoryVoteUrl(group.slug)}
-              nominees={group.nominees.map((n) => ({
-                id: n.id,
-                display_name: n.display_name,
-                business_name: n.business_name,
-                is_published: n.is_published,
-                photo_path: n.photo_path,
-              }))}
-              photoUrls={photoUrls}
-              first={index === 0}
-              last={index === groups.length - 1}
-            />
-          ))}
-        </ul>
-      </div>
+      <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        {groups.map((group, index) => (
+          <CategoryCard
+            key={group.id}
+            id={group.id}
+            name={group.name}
+            slug={group.slug}
+            isActive={group.is_active}
+            voteUrl={categoryVoteUrl(group.slug)}
+            nominees={group.nominees.map((n) => ({
+              id: n.id,
+              display_name: n.display_name,
+              business_name: n.business_name,
+              is_published: n.is_published,
+              photo_path: n.photo_path,
+            }))}
+            photoUrls={photoUrls}
+            first={index === 0}
+            last={index === groups.length - 1}
+          />
+        ))}
+      </ul>
     </div>
   );
 }
