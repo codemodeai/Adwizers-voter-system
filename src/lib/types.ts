@@ -59,6 +59,8 @@ export type Applicant = {
   social_whatsapp: string | null;
   logo_path: string | null;
   interested_in_nomination: NominationInterest;
+  fee_agreed_at: string | null;
+  fee_amount_inr: number | null;
   wants_whatsapp_updates: boolean;
   nomination_declaration_at: string;
   terms_accepted_at: string;

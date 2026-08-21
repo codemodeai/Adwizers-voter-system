@@ -15,6 +15,11 @@ import {
 } from "@/components/ui/Field";
 import { LogoField } from "@/components/ui/LogoField";
 import { Stepper } from "@/components/ui/Stepper";
+import {
+  FEE_INCLUDES,
+  REGISTRATION_FEE_DISPLAY,
+  WINNER_TIERS,
+} from "@/lib/fee";
 import type { Category } from "@/lib/types";
 import {
   ACCEPTED_LOGO_TYPES,
@@ -54,6 +59,13 @@ const STEPS = [
     image: "/steps/step-4.jpg",
     caption: "How the world will find you.",
     fields: ["socialInstagram", "socialFacebook", "socialWebsite", "socialWhatsapp", "logo"],
+  },
+  {
+    title: "Fee & Agreement",
+    description: `What the ${REGISTRATION_FEE_DISPLAY} award registration covers.`,
+    image: "/steps/success.jpg",
+    caption: "What the fee brings with it.",
+    fields: ["feeAgreed"],
   },
   {
     title: "Confirm & Submit",
@@ -231,7 +243,11 @@ function validateStep(index: number, fd: FormData, isOther: boolean): Errors {
     }
   }
 
-  if (index === 4) {
+  if (index === 4 && fd.get("feeAgreed") !== "on") {
+    errors.feeAgreed = `Please confirm you agree to pay the ${REGISTRATION_FEE_DISPLAY} registration fee`;
+  }
+
+  if (index === 5) {
     require("interestedInNomination", "Please tell us if you are interested in nomination");
     if (fd.get("nominationDeclaration") !== "on")
       errors.nominationDeclaration = "Please accept the nomination declaration";
@@ -254,7 +270,7 @@ function ImagePanel({ step }: { step: number }) {
     <div className="noise noise-strong relative isolate h-40 overflow-hidden bg-purple-royal sm:h-52 md:h-auto">
       {STEPS.map((s, i) => (
         <Image
-          key={s.image}
+          key={s.title}
           src={s.image}
           alt=""
           aria-hidden="true"
@@ -714,7 +730,11 @@ export function RegistrationForm({ categories }: { categories: Category[] }) {
               </Field>
             </div>
 
-            <div className={step === 4 ? `space-y-5 sm:space-y-6 ${panel}` : "hidden"}>
+            <div className={step === 4 ? `space-y-6 ${panel}` : "hidden"}>
+              <FeePanel error={errors.feeAgreed} agreed={v.feeAgreed === "on"} />
+            </div>
+
+            <div className={step === 5 ? `space-y-5 sm:space-y-6 ${panel}` : "hidden"}>
               <fieldset className="space-y-2">
                 <Label required>Are you interested in being nominated?</Label>
                 <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
@@ -822,6 +842,101 @@ export function RegistrationForm({ categories }: { categories: Category[] }) {
         </form>
       </div>
     </div>
+  );
+}
+
+/**
+ * The fee step. Everything shown here comes from `@/lib/fee`, so the price and
+ * the list of what it covers cannot drift between this page and anywhere else
+ * the offer is described.
+ */
+function FeePanel({ error, agreed }: { error?: string; agreed: boolean }) {
+  return (
+    <>
+      <div className="rounded-2xl border border-accent/35 bg-accent-soft px-5 py-6 text-center sm:py-7">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-gold">
+          Award Registration
+        </p>
+        <p className="mt-2 text-5xl font-bold tracking-tight text-heading sm:text-6xl">
+          {REGISTRATION_FEE_DISPLAY}
+        </p>
+        <p className="mt-2 text-sm text-ink-muted">
+          One-time fee for your entry to the AWE Awards 2026.
+        </p>
+      </div>
+
+      <section className="space-y-3">
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">
+          What {REGISTRATION_FEE_DISPLAY} includes
+        </h3>
+        <ul className="grid gap-x-5 gap-y-3 sm:grid-cols-2">
+          {FEE_INCLUDES.map((item) => (
+            <li key={item.title} className="flex gap-2.5">
+              <svg
+                viewBox="0 0 20 20"
+                fill="none"
+                aria-hidden="true"
+                className="mt-0.5 size-4 shrink-0 text-accent"
+              >
+                <circle cx="10" cy="10" r="9" fill="currentColor" opacity="0.16" />
+                <path
+                  d="m5.8 10.3 2.7 2.7 5.7-6"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <span>
+                <span className="block text-sm font-medium text-heading">{item.title}</span>
+                <span className="block text-[13px] leading-snug text-ink-muted">
+                  {item.detail}
+                </span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="space-y-3">
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">
+          Winner recognition
+        </h3>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {WINNER_TIERS.map((tier) => (
+            <div
+              key={tier.place}
+              className="rounded-xl border border-line bg-raised px-4 py-3.5"
+            >
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gold">
+                {tier.place}
+              </p>
+              <p className="mt-1 text-base font-semibold text-heading">{tier.award}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <div className="space-y-3 border-t border-line pt-5">
+        {/* Nothing is collected on this form -- the fee is settled with the
+          * team afterwards, which is what the admin payment status tracks. */}
+        <p className="text-[13px] leading-snug text-ink-muted">
+          You are not paying anything on this form. Once your entry is reviewed, our team
+          contacts you on WhatsApp with the payment details.
+        </p>
+
+        <CheckboxRow
+          name="feeAgreed"
+          title="Payment Agreement"
+          required
+          error={error}
+          defaultChecked={agreed}
+        >
+          I agree to pay the {REGISTRATION_FEE_DISPLAY} award registration fee for the AWE Awards
+          2026, and I understand it covers everything listed on this page.
+        </CheckboxRow>
+      </div>
+    </>
   );
 }
 

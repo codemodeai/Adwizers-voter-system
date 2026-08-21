@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 
+import { REGISTRATION_FEE_INR } from "@/lib/fee";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   applicantFormSchema,
@@ -27,6 +28,7 @@ const ECHOED_FIELDS = [
   "socialFacebook",
   "socialWebsite",
   "socialWhatsapp",
+  "feeAgreed",
   "interestedInNomination",
   "wantsWhatsappUpdates",
   "nominationDeclaration",
@@ -98,6 +100,7 @@ export async function submitApplication(
     socialFacebook: formData.get("socialFacebook") ?? "",
     socialWebsite: formData.get("socialWebsite") ?? "",
     socialWhatsapp: formData.get("socialWhatsapp") ?? "",
+    feeAgreed: formData.get("feeAgreed") === "on",
     interestedInNomination: formData.get("interestedInNomination") ?? "",
     wantsWhatsappUpdates: formData.get("wantsWhatsappUpdates") === "on",
     nominationDeclaration: formData.get("nominationDeclaration") === "on",
@@ -174,6 +177,8 @@ export async function submitApplication(
     nomination_declaration_at: now,
     terms_accepted_at: now,
     communication_consent_at: data.communicationConsent ? now : null,
+    fee_agreed_at: now,
+    fee_amount_inr: REGISTRATION_FEE_INR,
   });
 
   if (insertError) {

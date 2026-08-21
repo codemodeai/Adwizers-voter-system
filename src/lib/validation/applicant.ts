@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { REGISTRATION_FEE_DISPLAY } from "@/lib/fee";
+
 /** Category slug that unlocks the free-text "please specify" field. */
 export const OTHER_CATEGORY_SLUG = "other";
 
@@ -111,6 +113,11 @@ export const applicantFormSchema = z
       message: "Please tell us if you are interested in nomination",
     }),
     wantsWhatsappUpdates: z.coerce.boolean().default(false),
+
+    // Fee agreement, shown with the price breakdown on its own step
+    feeAgreed: acceptedCheckbox(
+      `Please confirm you agree to pay the ${REGISTRATION_FEE_DISPLAY} registration fee`,
+    ),
 
     // Q14-Q16
     nominationDeclaration: acceptedCheckbox("Please accept the nomination declaration"),
