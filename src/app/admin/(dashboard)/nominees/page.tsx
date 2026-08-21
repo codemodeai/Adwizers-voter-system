@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ApplicantAvatar } from "@/components/admin/ApplicantAvatar";
 import { NotifyBadge } from "@/components/admin/NotifyBadge";
 import { PublishToggle } from "@/components/admin/PublishToggle";
+import { StatTile } from "@/components/admin/StatTile";
 import { ReorderButtons } from "@/components/admin/ReorderButtons";
 import { resendConfigured, usingTestSender } from "@/lib/email/resend";
 import { listCategoriesWithNominees, nomineeCounts, signNomineePhotos } from "@/lib/nominees";
@@ -13,15 +14,6 @@ export const metadata: Metadata = {
   title: "Nominees · AWE Awards 2026",
   robots: { index: false },
 };
-
-function StatTile({ label, value, tone }: { label: string; value: number; tone: string }) {
-  return (
-    <div className="rounded-xl border border-line bg-surface px-4 py-3.5">
-      <p className="text-[12px] font-medium uppercase tracking-wide text-ink-muted">{label}</p>
-      <p className={`mt-1 text-2xl font-semibold tabular-nums ${tone}`}>{value}</p>
-    </div>
-  );
-}
 
 /**
  * Nominees (Final Plan section 5), grouped by category rather than listed flat.

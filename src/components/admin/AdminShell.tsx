@@ -12,10 +12,10 @@ const MODULES = [
   { href: "/admin/nominees", label: "Nominees", ready: true },
   { href: "/admin/categories", label: "Categories", ready: true },
   { href: "/admin/voting", label: "Voting Control", ready: true },
-  { href: "/admin/analytics", label: "Analytics", ready: false },
-  { href: "/admin/results", label: "Results / Winners", ready: false },
-  { href: "/admin/export", label: "Export", ready: false },
-  { href: "/admin/settings", label: "Settings", ready: false },
+  { href: "/admin/analytics", label: "Analytics", ready: true },
+  { href: "/admin/results", label: "Results / Winners", ready: true },
+  { href: "/admin/export", label: "Export", ready: true },
+  { href: "/admin/settings", label: "Settings", ready: true },
 ];
 
 export function AdminShell({

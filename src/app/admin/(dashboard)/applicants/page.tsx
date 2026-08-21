@@ -8,6 +8,7 @@ import { ViewToggle, type ApplicantView } from "@/components/admin/ViewToggle";
 import { FeeBadge } from "@/components/admin/FeeBadge";
 import { FormTypeTabs } from "@/components/admin/FormTypeTabs";
 import { PaymentToggle } from "@/components/admin/PaymentToggle";
+import { StatTile } from "@/components/admin/StatTile";
 import { StatusBadge } from "@/components/admin/StatusBadge";
 import { ApplicantFilters } from "@/components/admin/ApplicantFilters";
 import { Pagination } from "@/components/admin/Pagination";
@@ -41,15 +42,6 @@ function formatDate(iso: string) {
     month: "short",
     year: "numeric",
   });
-}
-
-function StatTile({ label, value, tone }: { label: string; value: number; tone: string }) {
-  return (
-    <div className="rounded-xl border border-line bg-surface px-4 py-3.5">
-      <p className="text-[12px] font-medium uppercase tracking-wide text-ink-muted">{label}</p>
-      <p className={`mt-1 text-2xl font-semibold tabular-nums ${tone}`}>{value}</p>
-    </div>
-  );
 }
 
 export default async function ApplicantsPage({

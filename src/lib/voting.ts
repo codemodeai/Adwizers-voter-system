@@ -85,3 +85,62 @@ export async function getPublicVotingSettings(): Promise<VotingSettings> {
 
   return (data as VotingSettings | null) ?? DEFAULT;
 }
+
+/**
+ * Voting rules and security thresholds (Final Plan sections 5 and 8).
+ *
+ * Stored rather than hardcoded because the moment they matter most is during a
+ * live vote, when tightening a limit has to take seconds rather than a deploy.
+ */
+export type VotingRules = {
+  rate_limit_per_ip_per_minute: number;
+  rate_limit_per_device_per_hour: number;
+  verify_session_minutes: number;
+  /** Null means no cap -- section 7 allows voting for every nominee in a
+   *  category in one submission. */
+  max_selections_per_submit: number | null;
+  results_published_at: string | null;
+};
+
+/** The plan's own numbers (section 8), used when the row predates these columns. */
+export const DEFAULT_RULES: VotingRules = {
+  rate_limit_per_ip_per_minute: 3,
+  rate_limit_per_device_per_hour: 20,
+  verify_session_minutes: 45,
+  max_selections_per_submit: null,
+  results_published_at: null,
+};
+
+export async function getVotingRules(): Promise<VotingRules> {
+  const supabase = await createClient();
+  // `*` so this keeps working against a database that predates these columns,
+  // the same reason the category reads use it.
+  const { data } = await supabase.from("voting_settings").select("*").eq("id", 1).maybeSingle();
+
+  const row = (data ?? {}) as Partial<VotingRules>;
+
+  return {
+    rate_limit_per_ip_per_minute:
+      row.rate_limit_per_ip_per_minute ?? DEFAULT_RULES.rate_limit_per_ip_per_minute,
+    rate_limit_per_device_per_hour:
+      row.rate_limit_per_device_per_hour ?? DEFAULT_RULES.rate_limit_per_device_per_hour,
+    verify_session_minutes: row.verify_session_minutes ?? DEFAULT_RULES.verify_session_minutes,
+    max_selections_per_submit: row.max_selections_per_submit ?? null,
+    results_published_at: row.results_published_at ?? null,
+  };
+}
+
+/** Dates are shown in IST everywhere, labelled as such -- the client and every
+ *  applicant are in India. */
+export function formatIst(iso: string | null): string | null {
+  if (!iso) return null;
+  return new Date(iso).toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
