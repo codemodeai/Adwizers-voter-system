@@ -42,7 +42,7 @@ export default function HomePage() {
                        px-8 py-3.5 text-base font-semibold text-white shadow-lg
                        shadow-accent/25 transition-colors hover:bg-accent-hover"
           >
-            Enter the Awards
+            AWE Awards 2026
           </Link>
 
           <Link

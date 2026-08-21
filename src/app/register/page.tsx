@@ -41,7 +41,7 @@ export default async function RegisterPage() {
             Nominations Open
           </p>
           <h1 className="mt-2 text-[26px] font-bold leading-tight tracking-tight text-heading sm:mt-2.5 sm:text-4xl">
-            Enter the Awards
+            AWE Awards 2026
           </h1>
           <p className="mx-auto mt-2.5 max-w-lg text-sm text-ink-muted sm:text-[15px]">
             Six short steps. Everything you share here is reviewed by our team before nomination.
