@@ -112,24 +112,28 @@ export default async function ApplicantsPage({
 
       {view === "table" && (
         <div className="overflow-hidden rounded-xl border border-line bg-surface">
+          {/* No minimum width: the columns that do not fit are dropped by
+            * breakpoint instead, and whatever a breakpoint hides reappears
+            * under the applicant's name. The wrapper stays as a last resort
+            * for very long unbroken values, but nothing should reach it. */}
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[64rem] text-left text-sm">
+            <table className="w-full text-left text-sm">
               <thead className="border-b border-line bg-canvas">
                 <tr className="text-[12px] font-semibold uppercase tracking-wide text-ink-muted">
-                  <th className="px-4 py-3">Applicant</th>
-                  <th className="px-4 py-3">Category</th>
-                  <th className="px-4 py-3">Contact</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Submitted</th>
-                  <th className="px-4 py-3 text-center">Payment</th>
-                  <th className="px-4 py-3 text-center">Fee</th>
-                  <th className="px-4 py-3 text-right">Action</th>
+                  {/* The name column absorbs the leftover width so every other
+                    * column can shrink to its content and nothing overflows. */}
+                  <th className="w-full max-w-0 px-3 py-3 lg:px-4">Applicant</th>
+                  <th className="hidden w-px px-4 py-3 xl:table-cell">Contact</th>
+                  <th className="w-px px-3 py-3 lg:px-4">Status</th>
+                  <th className="hidden w-px px-4 py-3 xl:table-cell">Submitted</th>
+                  <th className="w-px px-3 py-3 text-center lg:px-4">Payment</th>
+                  <th className="w-px px-3 py-3 text-right lg:px-4">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
                 {applicants.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-4 py-14 text-center">
+                    <td colSpan={6} className="px-4 py-14 text-center">
                       <p className="text-sm font-medium text-charcoal">
                         {filtered ? "No applicants match these filters." : "No applications yet."}
                       </p>
@@ -160,7 +164,7 @@ export default async function ApplicantsPage({
 
                 {applicants.map((a) => (
                   <tr key={a.id} className="transition-colors hover:bg-canvas">
-                    <td className="px-4 py-3">
+                    <td className="w-full max-w-0 px-3 py-3 lg:px-4">
                       <div className="flex items-center gap-3">
                         <ApplicantAvatar
                           url={a.logo_path ? (logoUrls[a.logo_path] ?? null) : null}
@@ -169,36 +173,32 @@ export default async function ApplicantsPage({
                         <div className="min-w-0">
                           <Link
                             href={`/admin/applicants/${a.id}`}
-                            className="font-semibold text-purple-royal hover:text-magenta-royal"
+                            className="block truncate font-semibold text-purple-royal hover:text-magenta-royal"
                           >
                             {a.full_name}
                           </Link>
                           <p className="mt-0.5 truncate text-[13px] text-ink-muted">
-                            {a.business_name}
+                            {a.business_name} · {categoryLabel(a)}
+                          </p>
+                          {/* Only until the columns that own these appear. */}
+                          <p className="mt-0.5 truncate text-[12px] text-ink-muted xl:hidden">
+                            {a.whatsapp_number} · {formatDate(a.created_at)}
                           </p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-[13px] text-charcoal">{categoryLabel(a)}</td>
-                    <td className="px-4 py-3 text-[13px] text-charcoal">
+                    <td className="hidden w-px px-4 py-3 text-[13px] text-charcoal xl:table-cell">
                       <p className="tabular-nums">{a.whatsapp_number}</p>
-                      <p className="mt-0.5 truncate text-ink-muted" title={a.email}>
+                      <p
+                        className="mt-0.5 max-w-[13rem] truncate text-ink-muted"
+                        title={a.email}
+                      >
                         {a.email}
                       </p>
                     </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={a.status} />
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-[13px] text-ink-muted">
-                      {formatDate(a.created_at)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-center">
-                        <PaymentToggle id={a.id} status={a.status} />
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-center">
+                    <td className="w-px px-3 py-3 lg:px-4">
+                      <div className="flex flex-col items-start gap-1">
+                        <StatusBadge status={a.status} compact />
                         <FeeBadge
                           agreedAt={a.fee_agreed_at}
                           amount={a.fee_amount_inr}
@@ -206,9 +206,21 @@ export default async function ApplicantsPage({
                         />
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-3">
-                        <PromoteButton id={a.id} status={a.status} />
+                    <td className="hidden w-px whitespace-nowrap px-4 py-3 text-[13px] text-ink-muted xl:table-cell">
+                      {formatDate(a.created_at)}
+                    </td>
+                    <td className="w-px px-3 py-3 lg:px-4">
+                      <div className="flex justify-center">
+                        <PaymentToggle id={a.id} status={a.status} />
+                      </div>
+                    </td>
+                    <td className="w-px px-3 py-3 lg:px-4">
+                      <div className="flex items-center justify-end gap-2.5">
+                        {/* Promote needs payment first anyway, so on a phone it
+                          * gives up its space to Review. */}
+                        <span className="hidden sm:inline-flex">
+                          <PromoteButton id={a.id} status={a.status} />
+                        </span>
                         <Link
                           href={`/admin/applicants/${a.id}`}
                           className="text-[13px] font-semibold text-magenta-royal hover:underline"
