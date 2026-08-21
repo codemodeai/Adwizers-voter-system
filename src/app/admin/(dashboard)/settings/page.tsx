@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { VotingRulesForm } from "@/components/admin/VotingRulesForm";
 import { resendConfigured, usingTestSender } from "@/lib/email/resend";
+import { turnstileConfigured } from "@/lib/turnstile";
 import { ADMIN_ORIGIN, FORM_ORIGIN } from "@/lib/target";
 import { getVotingRules, getVotingSettings, VOTING_STATUS_LABEL } from "@/lib/voting";
 
@@ -123,6 +124,16 @@ export default async function SettingsPage() {
             value={ADMIN_ORIGIN ? "Set" : "Not set"}
             ok={Boolean(ADMIN_ORIGIN)}
             note={ADMIN_ORIGIN ?? undefined}
+          />
+          <Row
+            label="Captcha (Cloudflare Turnstile)"
+            value={turnstileConfigured() ? "Protecting votes" : "Not configured"}
+            ok={turnstileConfigured()}
+            note={
+              turnstileConfigured()
+                ? undefined
+                : "NEXT_PUBLIC_TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY are unset on the form deployment. Votes are accepted without a captcha check."
+            }
           />
           <Row
             label="Voting"

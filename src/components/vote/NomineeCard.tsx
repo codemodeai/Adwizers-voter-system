@@ -1,3 +1,5 @@
+"use client";
+
 import Image from "next/image";
 
 import type { PublicNominee } from "@/lib/nominees";
@@ -6,17 +8,24 @@ import type { PublicNominee } from "@/lib/nominees";
  * A nominee's card on her category's voting page (Final Plan section 6):
  * photo, name, business name, short bio, and a checkbox.
  *
- * The checkbox is present and disabled rather than absent, because the layout
- * it sits in is the one voting will actually use -- building the card without
- * it would mean redrawing this page when the ballot opens, and the cards are
- * being shared with nominees now.
+ * When voting is open the whole card is the checkbox -- a real label wrapping a
+ * real input, so it stays keyboard-reachable and screen-reader-correct while
+ * giving a thumb a card-sized target instead of a 20px square. When voting is
+ * not open the same card renders inert, so the layout a voter will use is the
+ * layout she is already looking at.
  */
 export function NomineeCard({
   nominee,
   photoUrl,
+  selectable = false,
+  selected = false,
+  onToggle,
 }: {
   nominee: PublicNominee;
   photoUrl: string | null;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggle?: () => void;
 }) {
   const links = [
     { href: nominee.social_instagram, label: "Instagram" },
@@ -24,11 +33,8 @@ export function NomineeCard({
     { href: nominee.social_website, label: "Website" },
   ].filter((link): link is { href: string; label: string } => Boolean(link.href));
 
-  return (
-    <li
-      className="flex flex-col overflow-hidden rounded-2xl border border-line bg-surface/70
-                 transition-colors hover:border-line-strong"
-    >
+  const body = (
+    <>
       <div className="relative aspect-[4/3] w-full bg-raised">
         {photoUrl ? (
           <Image
@@ -47,6 +53,24 @@ export function NomineeCard({
             {nominee.display_name.trim().charAt(0).toUpperCase() || "?"}
           </span>
         )}
+
+        {selectable && selected && (
+          <span
+            aria-hidden="true"
+            className="absolute right-2.5 top-2.5 flex size-7 items-center justify-center
+                       rounded-full bg-accent text-white shadow-lg"
+          >
+            <svg viewBox="0 0 20 20" fill="none" className="size-4">
+              <path
+                d="m4.5 10.5 3.5 3.5 7.5-8"
+                stroke="currentColor"
+                strokeWidth="2.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </span>
+        )}
       </div>
 
       <div className="flex flex-1 flex-col gap-2 p-4">
@@ -63,15 +87,25 @@ export function NomineeCard({
             )}
           </div>
 
-          {/* Inert until the ballot opens; `disabled` and the title say why. */}
-          <input
-            type="checkbox"
-            disabled
-            aria-label={`Vote for ${nominee.display_name} (voting has not opened)`}
-            title="Voting has not opened yet"
-            className="mt-0.5 size-5 shrink-0 cursor-not-allowed rounded border-line-strong
-                       bg-transparent opacity-45"
-          />
+          {selectable ? (
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={() => onToggle?.()}
+              aria-label={`Vote for ${nominee.display_name} of ${nominee.business_name}`}
+              className="mt-0.5 size-5 shrink-0 cursor-pointer rounded border-line-strong
+                         accent-accent"
+            />
+          ) : (
+            <input
+              type="checkbox"
+              disabled
+              aria-label={`Vote for ${nominee.display_name} (voting is not open)`}
+              title="Voting is not open"
+              className="mt-0.5 size-5 shrink-0 cursor-not-allowed rounded border-line-strong
+                         bg-transparent opacity-45"
+            />
+          )}
         </div>
 
         {nominee.bio && (
@@ -86,6 +120,8 @@ export function NomineeCard({
                 href={link.href}
                 target="_blank"
                 rel="noreferrer nofollow"
+                // Inside a label, a link click would otherwise toggle the card.
+                onClick={(event) => event.stopPropagation()}
                 className="font-medium text-ink-muted underline underline-offset-2 hover:text-accent"
               >
                 {link.label}
@@ -94,6 +130,24 @@ export function NomineeCard({
           </p>
         )}
       </div>
+    </>
+  );
+
+  const shell =
+    "flex flex-col overflow-hidden rounded-2xl border bg-surface/70 transition-colors " +
+    (selectable
+      ? selected
+        ? "cursor-pointer border-accent ring-2 ring-accent/35"
+        : "cursor-pointer border-line hover:border-line-strong"
+      : "border-line");
+
+  if (!selectable) {
+    return <li className={shell}>{body}</li>;
+  }
+
+  return (
+    <li>
+      <label className={`h-full ${shell}`}>{body}</label>
     </li>
   );
 }

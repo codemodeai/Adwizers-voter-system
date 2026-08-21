@@ -4,7 +4,9 @@ import { notFound } from "next/navigation";
 
 import { DarkShell } from "@/components/DarkShell";
 import { NomineeCard } from "@/components/vote/NomineeCard";
+import { VoteForm } from "@/components/vote/VoteForm";
 import { publicCategoryPage, signNomineePhotos } from "@/lib/nominees";
+import { turnstileSiteKey } from "@/lib/turnstile";
 import {
   categoryVotingState,
   getPublicVotingSettings,
@@ -77,7 +79,18 @@ export default async function CategoryVotePage({ params }: PageProps<"/vote/[slu
           * their tap counted. */}
         <VotingNotice state={state} />
 
-        {nominees.length > 0 ? (
+        {/* Open and populated: the real ballot. Anything else shows the same
+          * cards inert, so the page a voter will use is the page she is
+          * already looking at. */}
+        {state === "open" && nominees.length > 0 ? (
+          <VoteForm
+            slug={slug}
+            categoryName={category.name}
+            nominees={nominees}
+            photoUrls={photoUrls}
+            turnstileSiteKey={turnstileSiteKey()}
+          />
+        ) : nominees.length > 0 ? (
           <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {nominees.map((nominee) => (
               <NomineeCard
@@ -125,7 +138,7 @@ function VotingNotice({ state }: { state: CategoryVotingState }) {
     open: {
       icon: "\u{1F5F3}\u{FE0F}",
       title: "Voting is open.",
-      body: "The ballot goes live on this page shortly. Nothing you tap here is counted yet.",
+      body: "Tick everyone you want to vote for, fill your details once, and submit. One vote per nominee — you can back several in this category.",
     },
     paused: {
       icon: "\u{23F8}\u{FE0F}",

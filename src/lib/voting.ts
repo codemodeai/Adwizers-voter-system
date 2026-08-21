@@ -144,3 +144,31 @@ export function formatIst(iso: string | null): string | null {
     hour12: true,
   });
 }
+
+/**
+ * Status and rules together, read with the service role.
+ *
+ * The public vote action needs the rate limits, and `anon` deliberately cannot
+ * see them -- the column grant on voting_settings covers the switch and the
+ * reveal timestamp only, because the thresholds are fraud settings. So the
+ * ballot reads them the same way the entry form writes submissions: server-side
+ * with the service key, never through the browser's identity.
+ */
+export async function getRuntimeVotingConfig(): Promise<VotingRules & { status: VotingStatus }> {
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const supabase = createAdminClient();
+
+  const { data } = await supabase.from("voting_settings").select("*").eq("id", 1).maybeSingle();
+  const row = (data ?? {}) as Partial<VotingRules> & { status?: VotingStatus };
+
+  return {
+    status: row.status ?? "not_started",
+    rate_limit_per_ip_per_minute:
+      row.rate_limit_per_ip_per_minute ?? DEFAULT_RULES.rate_limit_per_ip_per_minute,
+    rate_limit_per_device_per_hour:
+      row.rate_limit_per_device_per_hour ?? DEFAULT_RULES.rate_limit_per_device_per_hour,
+    verify_session_minutes: row.verify_session_minutes ?? DEFAULT_RULES.verify_session_minutes,
+    max_selections_per_submit: row.max_selections_per_submit ?? null,
+    results_published_at: row.results_published_at ?? null,
+  };
+}
