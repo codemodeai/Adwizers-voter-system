@@ -51,12 +51,27 @@ const optionalUrl = trimmed
   .refine((v) => {
     if (!v) return true;
     try {
-      new URL(v);
-      return true;
+      const host = new URL(v).hostname.toLowerCase();
+      // A bare word or a phone number parses as a URL quite happily, so the
+      // host has to look like a real domain before we call this a link.
+      return /^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$/.test(host);
     } catch {
       return false;
     }
   }, "Enter a valid link");
+
+/**
+ * The WhatsApp field asks for a link, but a number is what people reach for --
+ * the form turns one into a wa.me link as they type, and this does the same
+ * for anything that arrives without having been through it.
+ */
+const optionalWhatsappUrl = z.preprocess((raw) => {
+  if (typeof raw !== "string") return raw;
+  const value = raw.trim();
+  if (!/^\+?[\d\s()-]+$/.test(value)) return raw;
+  const digits = value.replace(/\D/g, "");
+  return digits.length >= 11 && digits.length <= 15 ? `https://wa.me/${digits}` : raw;
+}, optionalUrl);
 
 const acceptedCheckbox = (message: string) =>
   z.coerce.boolean().refine((v) => v === true, message);
@@ -89,7 +104,7 @@ export const applicantFormSchema = z
     socialInstagram: optionalUrl,
     socialFacebook: optionalUrl,
     socialWebsite: optionalUrl,
-    socialWhatsapp: optionalUrl,
+    socialWhatsapp: optionalWhatsappUrl,
 
     // Q12-Q13
     interestedInNomination: z.enum(["yes", "maybe"], {

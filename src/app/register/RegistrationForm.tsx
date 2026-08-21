@@ -76,6 +76,106 @@ const FIELD_STEP: Record<string, number> = Object.fromEntries(
 );
 
 /**
+ * The link fields on step 4 are the ones people get wrong -- they type a
+ * handle, a phone number, or the name of their shop. Each kind carries the
+ * shape we expect so the field can say so up front, and again the moment what
+ * they typed stops matching.
+ */
+const LINK_KINDS = {
+  instagram: {
+    wrongHost: "That is not an Instagram link.",
+    hosts: ["instagram.com"],
+    example: "instagram.com/yourbrand",
+  },
+  facebook: {
+    wrongHost: "That is not a Facebook link.",
+    hosts: ["facebook.com", "fb.com", "fb.me"],
+    example: "facebook.com/yourbrand",
+  },
+  whatsapp: {
+    wrongHost: "That is not a WhatsApp link.",
+    hosts: ["wa.me", "whatsapp.com"],
+    example: "wa.me/919876543210",
+  },
+  website: { wrongHost: "", hosts: null, example: "yourbrand.com" },
+} as const;
+
+type LinkKind = keyof typeof LINK_KINDS;
+
+/** Every host we know belongs in one of the *other* link fields. */
+const SOCIAL_HOSTS = ["instagram.com", "facebook.com", "fb.com", "fb.me", "wa.me", "whatsapp.com"];
+
+const hostMatches = (host: string, allowed: readonly string[]) =>
+  allowed.some((a) => host === a || host.endsWith(`.${a}`));
+
+type LinkCheck = { state: "empty" | "ok" | "error"; message?: string; normalized?: string };
+
+/**
+ * One rule set shared by the live hint under the input and the step's own
+ * validation, so the field can never say "looks good" and then block Next.
+ */
+function checkLink(raw: string, kind: LinkKind): LinkCheck {
+  const value = raw.trim();
+  const { wrongHost, hosts, example } = LINK_KINDS[kind];
+  const wanted = `Use a link like ${example}`;
+
+  if (!value) return { state: "empty" };
+
+  // A bare phone number is the single most common thing typed into the
+  // WhatsApp field, and it is one we can just turn into the right link.
+  if (kind === "whatsapp" && /^\+?[\d\s()-]+$/.test(value)) {
+    const digits = value.replace(/\D/g, "");
+    // wa.me only works with the country code in front, which is exactly the
+    // part people leave off when they type their own number from memory.
+    if (digits.length >= 11 && digits.length <= 15) {
+      return { state: "ok", normalized: `https://wa.me/${digits}` };
+    }
+    return {
+      state: "error",
+      message: `That number needs its country code as well. ${wanted}`,
+    };
+  }
+
+  if (value.startsWith("@")) {
+    return { state: "error", message: `That is a username, not a link. ${wanted}` };
+  }
+  if (/\s/.test(value)) {
+    return { state: "error", message: `A link has no spaces in it. ${wanted}` };
+  }
+
+  const withProtocol = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+  let url: URL;
+  try {
+    url = new URL(withProtocol);
+  } catch {
+    return { state: "error", message: `That is not a link yet. ${wanted}` };
+  }
+
+  const host = url.hostname.toLowerCase().replace(/^www\./, "");
+  if (!/^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$/.test(host)) {
+    return { state: "error", message: `That is not a web address. ${wanted}` };
+  }
+
+  if (hosts && !hostMatches(host, hosts)) {
+    return { state: "error", message: `${wrongHost} ${wanted}` };
+  }
+  if (!hosts && hostMatches(host, SOCIAL_HOSTS)) {
+    return {
+      state: "error",
+      message: "That is a social link -- it belongs in one of the fields above.",
+    };
+  }
+  if (kind === "whatsapp" && host === "wa.me" && url.pathname.replace(/\D/g, "").length < 11) {
+    return {
+      state: "error",
+      message: `That link needs your number with its country code. ${wanted}`,
+    };
+  }
+
+  return { state: "ok", normalized: url.toString().replace(/\/$/, "") };
+}
+
+/**
  * Client-side mirror of the Zod rules, run per step so nobody reaches the end
  * only to be bounced. The server still re-validates everything on submit.
  */
@@ -113,6 +213,16 @@ function validateStep(index: number, fd: FormData, isOther: boolean): Errors {
   }
 
   if (index === 3) {
+    for (const [name, kind] of [
+      ["socialInstagram", "instagram"],
+      ["socialFacebook", "facebook"],
+      ["socialWebsite", "website"],
+      ["socialWhatsapp", "whatsapp"],
+    ] as const) {
+      const check = checkLink(value(name), kind);
+      if (check.state === "error") errors[name] = check.message!;
+    }
+
     const file = fd.get("logo");
     if (file instanceof File && file.size > 0) {
       if (!ACCEPTED_LOGO_TYPES.includes(file.type as (typeof ACCEPTED_LOGO_TYPES)[number]))
@@ -561,40 +671,37 @@ export function RegistrationForm({ categories }: { categories: Category[] }) {
             </div>
 
             <div className={step === 3 ? `grid gap-4 sm:gap-5 sm:grid-cols-2 ${panel}` : "hidden"}>
-              <Field label="Instagram" htmlFor="socialInstagram">
-                <input
-                  id="socialInstagram"
-                  name="socialInstagram"
-                  defaultValue={v.socialInstagram}
-                  autoComplete="url"
-                  className={inputClass}
-                  placeholder="instagram.com/yourbrand"
-                />
-              </Field>
+              <LinkField
+                kind="instagram"
+                name="socialInstagram"
+                label="Instagram"
+                defaultValue={v.socialInstagram}
+                serverError={errors.socialInstagram}
+              />
 
-              <Field label="Facebook" htmlFor="socialFacebook">
-                <input
-                  id="socialFacebook"
-                  name="socialFacebook"
-                  defaultValue={v.socialFacebook}
-                  autoComplete="url"
-                  className={inputClass}
-                  placeholder="facebook.com/yourbrand"
-                />
-              </Field>
+              <LinkField
+                kind="facebook"
+                name="socialFacebook"
+                label="Facebook"
+                defaultValue={v.socialFacebook}
+                serverError={errors.socialFacebook}
+              />
 
-              <Field label="Website" htmlFor="socialWebsite">
-                <input
-                  id="socialWebsite"
-                  name="socialWebsite"
-                  defaultValue={v.socialWebsite}
-                  autoComplete="url"
-                  className={inputClass}
-                  placeholder="yourbrand.com"
-                />
-              </Field>
+              <LinkField
+                kind="website"
+                name="socialWebsite"
+                label="Website"
+                defaultValue={v.socialWebsite}
+                serverError={errors.socialWebsite}
+              />
 
-              <WhatsAppLinkField defaultValue={v.socialWhatsapp} whatsapp={whatsapp} />
+              <LinkField
+                kind="whatsapp"
+                name="socialWhatsapp"
+                label="WhatsApp Link"
+                defaultValue={v.socialWhatsapp}
+                serverError={errors.socialWhatsapp}
+              />
 
               <Field
                 label="Logo / Product Photo"
@@ -719,44 +826,68 @@ export function RegistrationForm({ categories }: { categories: Category[] }) {
 }
 
 /**
- * Most people's WhatsApp link is just their number, so offer to fill it rather
- * than making them construct a wa.me URL by hand.
+ * A link field that says what a good answer looks like before anything is
+ * typed, and swaps that line for the specific problem -- or for the exact URL
+ * we will store -- as soon as there is something to judge. Mistakes are only
+ * called out once the field has been left, so nobody is scolded mid-word.
  */
-function WhatsAppLinkField({
+function LinkField({
+  kind,
+  name,
+  label,
   defaultValue,
-  whatsapp,
+  serverError,
 }: {
+  kind: LinkKind;
+  name: string;
+  label: string;
   defaultValue?: string;
-  whatsapp: string;
+  serverError?: string;
 }) {
   const [value, setValue] = useState(defaultValue ?? "");
-  const digits = whatsapp.replace(/\D/g, "");
-  const suggestion = digits.length >= 10 ? `wa.me/${digits}` : null;
+  const [touched, setTouched] = useState(false);
+
+  const { example } = LINK_KINDS[kind];
+  const check = checkLink(value, kind);
+  const showError = check.state === "error" && touched;
 
   return (
     <Field
-      label="WhatsApp Link"
-      htmlFor="socialWhatsapp"
+      label={label}
+      htmlFor={name}
+      error={showError ? check.message : serverError}
       hint={
-        suggestion && value !== suggestion ? (
-          <button
-            type="button"
-            onClick={() => setValue(suggestion)}
-            className="font-medium text-accent underline underline-offset-2"
-          >
-            Use my WhatsApp number ({suggestion})
-          </button>
-        ) : undefined
+        showError ? undefined : check.state === "ok" ? (
+          <span className="break-all">
+            <span className="text-gold" aria-hidden="true">
+              &#10003;
+            </span>{" "}
+            Saved as {check.normalized}
+          </span>
+        ) : (
+          <>
+            Links only &mdash; paste the full address, like{" "}
+            <span className="text-ink">{example}</span>
+          </>
+        )
       }
     >
       <input
-        id="socialWhatsapp"
-        name="socialWhatsapp"
+        id={name}
+        name={name}
+        inputMode="url"
         value={value}
         onChange={(e) => setValue(e.target.value)}
+        onBlur={() => {
+          setTouched(true);
+          // A number typed into the WhatsApp field is stored as the wa.me link
+          // it means, so what is submitted matches what the hint promised.
+          if (check.state === "ok" && kind === "whatsapp") setValue(check.normalized ?? value);
+        }}
+        aria-invalid={showError || undefined}
         autoComplete="url"
         className={inputClass}
-        placeholder="wa.me/919876543210"
+        placeholder={example}
       />
     </Field>
   );
