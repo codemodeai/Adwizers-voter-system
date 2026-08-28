@@ -16,7 +16,7 @@ export const STALL_FEE_DISPLAY = "₹4,999";
 /** The three facts a stall holder needs before deciding: when, where, and how
  *  few spaces are left to decide about. */
 export const CARNIVAL_EVENT = {
-  date: "Sunday, 20 September 2026",
+  date: "Sunday, 4 October 2026",
   venue: "Nila Mahal AC, Kumbakonam",
   spaces: "Only 20 business spaces",
 } as const;
