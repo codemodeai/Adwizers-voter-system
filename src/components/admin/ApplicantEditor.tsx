@@ -86,10 +86,13 @@ export function ApplicantEditor({
   applicant: a,
   categories,
   logoUrl,
+  originalUrl,
 }: {
   applicant: ApplicantWithCategory;
   categories: Category[];
   logoUrl: string | null;
+  /** The uncropped file a crop was made from, when one is still on file. */
+  originalUrl: string | null;
 }) {
   const [state, formAction] = useActionState(updateApplicant, EMPTY_EDIT_STATE);
   const [logoState, logoAction] = useActionState(updateLogo, EMPTY_LOGO_STATE);
@@ -509,6 +512,30 @@ export function ApplicantEditor({
                 that square, then save with the button above.
               </p>
             </form>
+
+            {originalUrl && (
+              <div className="space-y-1.5">
+                <form action={logoAction}>
+                  <input type="hidden" name="id" value={a.id} />
+                  <input type="hidden" name="intent" value="restore" />
+                  <Button type="submit" variant="secondary" className="w-full">
+                    Restore original photo
+                  </Button>
+                </form>
+                <p className="text-[12px] leading-relaxed text-ink-muted">
+                  Puts back the full, uncropped photo this crop was made from.{" "}
+                  <a
+                    href={originalUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-magenta-royal underline underline-offset-2"
+                  >
+                    View it first
+                  </a>
+                  .
+                </p>
+              </div>
+            )}
 
             {logoUrl && (
               <form action={logoAction}>

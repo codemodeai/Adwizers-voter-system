@@ -60,10 +60,13 @@ export function NomineeEditor({
   nominee,
   categories,
   photoUrl,
+  originalUrl,
 }: {
   nominee: NomineeWithCategory;
   categories: Category[];
   photoUrl: string | null;
+  /** The uncropped file a crop made here was taken from, when one is on file. */
+  originalUrl: string | null;
 }) {
   const [state, action] = useActionState(updateNominee, EMPTY_NOMINEE_EDIT_STATE);
   const [photoState, photoAction] = useActionState(
@@ -140,6 +143,30 @@ export function NomineeEditor({
                 {photoUrl ? "Replace photo" : "Upload photo"}
               </Button>
             </form>
+
+            {originalUrl && (
+              <div className="space-y-1.5">
+                <form action={photoAction}>
+                  <input type="hidden" name="id" value={nominee.id} />
+                  <input type="hidden" name="intent" value="restore" />
+                  <Button type="submit" variant="secondary" className="w-full sm:w-auto sm:px-6">
+                    Restore original photo
+                  </Button>
+                </form>
+                <p className="text-[12px] leading-relaxed text-ink-muted">
+                  Puts back the full, uncropped photo this crop was made from.{" "}
+                  <a
+                    href={originalUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-magenta-royal underline underline-offset-2"
+                  >
+                    View it first
+                  </a>
+                  .
+                </p>
+              </div>
+            )}
 
             {nominee.photo_path && (
               <form action={photoAction}>

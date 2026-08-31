@@ -7,6 +7,7 @@ import { ApplicantEditor } from "@/components/admin/ApplicantEditor";
 import { PaymentToggle } from "@/components/admin/PaymentToggle";
 import { PromoteButton } from "@/components/admin/PromoteButton";
 import { getApplicant, listCategories, signLogoUrl } from "@/lib/applicants";
+import { signOriginal } from "@/lib/photoStorage";
 
 export const metadata: Metadata = {
   title: "Review applicant · AWE Awards 2026",
@@ -21,9 +22,11 @@ export default async function ApplicantDetailPage({
   const applicant = await getApplicant(id);
   if (!applicant) notFound();
 
-  const [categories, logoUrl] = await Promise.all([
+  const [categories, logoUrl, originalUrl] = await Promise.all([
     listCategories(),
     signLogoUrl(applicant.logo_path),
+    // Present only while a crop is undoable: the uncropped file it was made from.
+    signOriginal(applicant.id),
   ]);
 
   return (
@@ -69,7 +72,12 @@ export default async function ApplicantDetailPage({
         </div>
       </div>
 
-      <ApplicantEditor applicant={applicant} categories={categories} logoUrl={logoUrl} />
+      <ApplicantEditor
+        applicant={applicant}
+        categories={categories}
+        logoUrl={logoUrl}
+        originalUrl={originalUrl}
+      />
     </div>
   );
 }

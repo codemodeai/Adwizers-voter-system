@@ -7,6 +7,7 @@ import { NotifyBadge } from "@/components/admin/NotifyBadge";
 import { PublishToggle } from "@/components/admin/PublishToggle";
 import { listCategories } from "@/lib/applicants";
 import { categoryVoteUrl, getNominee, signNomineePhotos } from "@/lib/nominees";
+import { signOriginal } from "@/lib/photoStorage";
 import { notifyState } from "@/lib/types";
 
 export const metadata: Metadata = {
@@ -20,7 +21,12 @@ export default async function NomineePage({ params }: PageProps<"/admin/nominees
   const [nominee, categories] = await Promise.all([getNominee(id), listCategories()]);
   if (!nominee) notFound();
 
-  const photoUrls = await signNomineePhotos([nominee.photo_path]);
+  const [photoUrls, originalUrl] = await Promise.all([
+    signNomineePhotos([nominee.photo_path]),
+    // Only her own crops are undoable from here; a photo still shared with the
+    // entry is restored on the entry screen, where its original lives.
+    signOriginal(`nominees/${nominee.id}`),
+  ]);
   const photoUrl = nominee.photo_path ? (photoUrls[nominee.photo_path] ?? null) : null;
 
   return (
@@ -80,7 +86,12 @@ export default async function NomineePage({ params }: PageProps<"/admin/nominees
         </span>
       </div>
 
-      <NomineeEditor nominee={nominee} categories={categories} photoUrl={photoUrl} />
+      <NomineeEditor
+        nominee={nominee}
+        categories={categories}
+        photoUrl={photoUrl}
+        originalUrl={originalUrl}
+      />
     </div>
   );
 }

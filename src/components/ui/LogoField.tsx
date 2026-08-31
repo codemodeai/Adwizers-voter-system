@@ -47,6 +47,9 @@ export function LogoField({
   ref?: Ref<LogoFieldHandle>;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  // Carries the pre-crop file so the server can keep it as the undo copy. Empty
+  // whenever the staged photo was not cropped -- then it is its own original.
+  const originalRef = useRef<HTMLInputElement>(null);
   const [picked, setPicked] = useState<Picked | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +72,22 @@ export function LogoField({
     setPicked(null);
   }
 
+  /** Stages the file a crop was taken from, or clears it when there was none. */
+  async function stageOriginal(sourceFile: File | null) {
+    const input = originalRef.current;
+    if (!input) return;
+
+    if (!sourceFile) {
+      input.value = "";
+      return;
+    }
+
+    const compressed = await compressImage(sourceFile);
+    const transfer = new DataTransfer();
+    transfer.items.add(compressed);
+    input.files = transfer.files;
+  }
+
   /** Compresses `file` and makes it the one the surrounding form will post. */
   async function accept(file: File, originalBytes: number, cropped: boolean) {
     const input = inputRef.current;
@@ -77,6 +96,7 @@ export function LogoField({
     setBusy(true);
     try {
       const compressed = await compressImage(file);
+      await stageOriginal(cropped ? source : null);
 
       // Hand the form the smaller file in place of the original.
       const transfer = new DataTransfer();
@@ -154,6 +174,7 @@ export function LogoField({
 
   function clear() {
     if (inputRef.current) inputRef.current.value = "";
+    if (originalRef.current) originalRef.current.value = "";
     setPicked((prev) => {
       if (prev) URL.revokeObjectURL(prev.url);
       return null;
@@ -176,6 +197,7 @@ export function LogoField({
         onChange={handleChange}
         className="sr-only"
       />
+      <input ref={originalRef} name={`${name}_original`} type="file" className="sr-only" tabIndex={-1} aria-hidden="true" />
 
       {picked ? (
         <div className="rounded-lg border border-line bg-raised p-3">

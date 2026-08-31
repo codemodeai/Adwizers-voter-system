@@ -3,7 +3,13 @@
 import { revalidatePath } from "next/cache";
 
 import { requireAdmin } from "@/lib/auth";
-import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  clearOriginals,
+  extensionFor,
+  keepOriginal,
+  photoStorage,
+  restoreOriginal,
+} from "@/lib/photoStorage";
 import { STALL_CATEGORIES } from "@/lib/carnival";
 import type { ApplicantStatus } from "@/lib/types";
 import { validateLogoFile } from "@/lib/validation/applicant";
@@ -210,17 +216,38 @@ export async function updateLogo(_prev: LogoState, formData: FormData): Promise<
 
   if (!applicant) return { status: "error", message: "Applicant not found." };
 
-  const storage = createAdminClient().storage.from("applicant-logos");
+  const storage = photoStorage();
 
   if (intent === "remove") {
     if (applicant.logo_path) {
       await storage.remove([applicant.logo_path]);
       await followSharedPhoto(supabase, id, applicant.logo_path, null);
     }
+    await clearOriginals(id);
     await supabase.from("applicants").update({ logo_path: null }).eq("id", id);
     revalidatePath("/admin/applicants");
     revalidatePath(`/admin/applicants/${id}`);
     return { status: "saved", message: "Photo removed." };
+  }
+
+  // Undo a crop: the uncropped file that was kept beside it becomes the photo
+  // again, at whatever extension it was uploaded with.
+  if (intent === "restore") {
+    const restored = await restoreOriginal(id, (extension) => `${id}/logo.${extension}`);
+    if ("error" in restored) return { status: "error", message: restored.error };
+
+    if (applicant.logo_path && applicant.logo_path !== restored.path) {
+      await storage.remove([applicant.logo_path]);
+    }
+
+    await supabase.from("applicants").update({ logo_path: restored.path }).eq("id", id);
+    if (applicant.logo_path) {
+      await followSharedPhoto(supabase, id, applicant.logo_path, restored.path);
+    }
+
+    revalidatePath("/admin/applicants");
+    revalidatePath(`/admin/applicants/${id}`);
+    return { status: "saved", message: "Original photo restored." };
   }
 
   const file = formData.get("logo");
@@ -231,8 +258,7 @@ export async function updateLogo(_prev: LogoState, formData: FormData): Promise<
   const invalid = validateLogoFile(file);
   if (invalid) return { status: "error", message: invalid };
 
-  const ext = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" }[file.type] ?? "bin";
-  const path = `${id}/logo.${ext}`;
+  const path = `${id}/logo.${extensionFor(file.type)}`;
 
   const { error: uploadError } = await storage.upload(path, file, {
     contentType: file.type,
@@ -243,6 +269,15 @@ export async function updateLogo(_prev: LogoState, formData: FormData): Promise<
   // A format change leaves the old object behind; clean it up.
   if (applicant.logo_path && applicant.logo_path !== path) {
     await storage.remove([applicant.logo_path]);
+  }
+
+  // The field posts the pre-crop file alongside a crop, and nothing alongside
+  // a plain upload -- which is exactly when the new photo is its own original.
+  const source = formData.get("logo_original");
+  if (source instanceof File && source.size > 0 && !validateLogoFile(source)) {
+    await keepOriginal(id, source);
+  } else {
+    await clearOriginals(id);
   }
 
   await supabase.from("applicants").update({ logo_path: path }).eq("id", id);

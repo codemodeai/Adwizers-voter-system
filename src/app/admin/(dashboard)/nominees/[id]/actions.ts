@@ -3,7 +3,13 @@
 import { revalidatePath } from "next/cache";
 
 import { requireAdmin } from "@/lib/auth";
-import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  clearOriginals,
+  extensionFor,
+  keepOriginal,
+  photoStorage,
+  restoreOriginal,
+} from "@/lib/photoStorage";
 import { validateLogoFile } from "@/lib/validation/applicant";
 import type { NomineeEditState, NomineePhotoState } from "./state";
 
@@ -127,8 +133,11 @@ export async function updateNomineePhoto(
 
   if (!nominee) return { status: "error", message: "Nominee not found." };
 
-  const storage = createAdminClient().storage.from("applicant-logos");
+  const storage = photoStorage();
   const owned = (path: string | null) => Boolean(path?.startsWith(NOMINEE_PREFIX));
+  // Undo copies for this nominee sit beside her own photo, never in the
+  // applicant's folder -- her screen must not write into the original entry.
+  const folder = `${NOMINEE_PREFIX}${id}`;
 
   const done = (message: string): NomineePhotoState => {
     revalidatePath(`/admin/nominees/${id}`);
@@ -140,8 +149,25 @@ export async function updateNomineePhoto(
 
   if (intent === "remove") {
     if (owned(nominee.photo_path)) await storage.remove([nominee.photo_path!]);
+    await clearOriginals(folder);
     await supabase.from("nominees").update({ photo_path: null }).eq("id", id);
     return done("Photo removed.");
+  }
+
+  // Undo a crop taken on this screen.
+  if (intent === "restore") {
+    const restored = await restoreOriginal(
+      folder,
+      (extension) => `${folder}/photo.${extension}`,
+    );
+    if ("error" in restored) return { status: "error", message: restored.error };
+
+    if (owned(nominee.photo_path) && nominee.photo_path !== restored.path) {
+      await storage.remove([nominee.photo_path!]);
+    }
+
+    await supabase.from("nominees").update({ photo_path: restored.path }).eq("id", id);
+    return done("Original photo restored.");
   }
 
   const file = formData.get("photo");
@@ -152,8 +178,7 @@ export async function updateNomineePhoto(
   const invalid = validateLogoFile(file);
   if (invalid) return { status: "error", message: invalid };
 
-  const ext = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" }[file.type] ?? "bin";
-  const path = `${NOMINEE_PREFIX}${id}/photo.${ext}`;
+  const path = `${folder}/photo.${extensionFor(file.type)}`;
 
   const { error: uploadError } = await storage.upload(path, file, {
     contentType: file.type,
@@ -164,6 +189,14 @@ export async function updateNomineePhoto(
   // Clean up only a previous nominee-owned object at a different extension.
   if (owned(nominee.photo_path) && nominee.photo_path !== path) {
     await storage.remove([nominee.photo_path!]);
+  }
+
+  // Posted only when this file came out of the cropper.
+  const source = formData.get("photo_original");
+  if (source instanceof File && source.size > 0 && !validateLogoFile(source)) {
+    await keepOriginal(folder, source);
+  } else {
+    await clearOriginals(folder);
   }
 
   await supabase.from("nominees").update({ photo_path: path }).eq("id", id);
