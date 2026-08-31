@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useActionState, type ReactNode } from "react";
+import { useActionState, useRef, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 
 import {
@@ -16,7 +16,7 @@ import { FeeBadge, formatFee } from "@/components/admin/FeeBadge";
 import { Button } from "@/components/ui/Button";
 import { Field, Label, inputClass, selectClass, textareaClass } from "@/components/ui/Field";
 import { STALL_CATEGORIES, STALL_GOALS } from "@/lib/carnival";
-import { LogoField } from "@/components/ui/LogoField";
+import { LogoField, type LogoFieldHandle } from "@/components/ui/LogoField";
 import {
   APPLICANT_STATUSES,
   STATUS_LABEL,
@@ -93,6 +93,9 @@ export function ApplicantEditor({
 }) {
   const [state, formAction] = useActionState(updateApplicant, EMPTY_EDIT_STATE);
   const [logoState, logoAction] = useActionState(updateLogo, EMPTY_LOGO_STATE);
+  // Cropping the photo already on file goes through the same field the picker
+  // feeds, so either route ends at the one "Replace photo" submit.
+  const logoField = useRef<LogoFieldHandle>(null);
   const err = state.fieldErrors ?? {};
 
   // A stall booking answers a different set of questions, so the panels below
@@ -460,6 +463,28 @@ export function ApplicantEditor({
                   unoptimized
                   className="object-cover"
                 />
+                {/* Cards, lists and the winners page all show this square, so a
+                  * tall phone portrait loses its top and bottom unless someone
+                  * chooses what stays. */}
+                <button
+                  type="button"
+                  onClick={() => logoField.current?.cropFromUrl(logoUrl)}
+                  className="absolute bottom-2.5 right-2.5 inline-flex items-center gap-1.5
+                             rounded-lg border border-line bg-surface/90 px-3 py-1.5 text-[13px]
+                             font-semibold text-heading shadow-sm backdrop-blur-sm
+                             transition-colors hover:border-accent/40 hover:text-accent"
+                >
+                  <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="size-3.5">
+                    <path
+                      d="M5.5 1.5v13h13M1.5 5.5h13v13"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  Crop
+                </button>
               </div>
             ) : (
               <div className="flex aspect-square items-center justify-center rounded-lg border border-dashed border-line bg-canvas text-center text-[13px] text-ink-muted">
@@ -475,10 +500,14 @@ export function ApplicantEditor({
               <input type="hidden" name="intent" value="replace" />
               {/* Same browser-side downscale as the public form, so an admin
                 * re-uploading a phone photo does not trip the body limit. */}
-              <LogoField id={`logo-${a.id}`} />
+              <LogoField id={`logo-${a.id}`} aspect={1} ref={logoField} />
               <Button type="submit" variant="secondary" className="w-full">
                 {logoUrl ? "Replace photo" : "Upload photo"}
               </Button>
+              <p className="text-[12px] leading-relaxed text-ink-muted">
+                Cards show this photo as a square. Crop it here to choose what stays inside
+                that square, then save with the button above.
+              </p>
             </form>
 
             {logoUrl && (

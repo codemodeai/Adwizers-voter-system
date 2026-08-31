@@ -150,6 +150,51 @@ export async function updateApplicant(
   return { status: "saved", message: "Changes saved." };
 }
 
+type AdminSupabase = Awaited<ReturnType<typeof requireAdmin>>["supabase"];
+
+/**
+ * Promotion copies the applicant's logo path straight onto her nominee row, so
+ * the two rows point at one storage object rather than a copy of it. That makes
+ * a photo change here silently a photo change on the public card -- except when
+ * the new file lands at a different path, which every crop does because a crop
+ * is always re-encoded as JPEG. The nominee would be left pointing at the object
+ * this action just deleted, and her card, the voting page and the winners page
+ * would all render a broken image.
+ *
+ * So: any nominee still sharing the old object follows it to the new one (or to
+ * nothing, on removal). A nominee who has since been given her own photo under
+ * `nominees/` does not match, and keeps the picture she was given.
+ */
+async function followSharedPhoto(
+  supabase: AdminSupabase,
+  applicantId: string,
+  fromPath: string,
+  toPath: string | null,
+) {
+  const { data: shared } = await supabase
+    .from("nominees")
+    .select("id, categories(slug)")
+    .eq("applicant_id", applicantId)
+    .eq("photo_path", fromPath)
+    .returns<{ id: string; categories: { slug: string } | null }[]>();
+
+  if (!shared?.length) return;
+
+  await supabase
+    .from("nominees")
+    .update({ photo_path: toPath })
+    .eq("applicant_id", applicantId)
+    .eq("photo_path", fromPath);
+
+  revalidatePath("/admin/nominees");
+  revalidatePath("/admin/categories");
+  revalidatePath("/winners");
+  for (const nominee of shared) {
+    revalidatePath(`/admin/nominees/${nominee.id}`);
+    if (nominee.categories?.slug) revalidatePath(`/vote/${nominee.categories.slug}`);
+  }
+}
+
 /** Replaces or removes the applicant's photo in the private storage bucket. */
 export async function updateLogo(_prev: LogoState, formData: FormData): Promise<LogoState> {
   const { supabase } = await requireAdmin();
@@ -168,8 +213,12 @@ export async function updateLogo(_prev: LogoState, formData: FormData): Promise<
   const storage = createAdminClient().storage.from("applicant-logos");
 
   if (intent === "remove") {
-    if (applicant.logo_path) await storage.remove([applicant.logo_path]);
+    if (applicant.logo_path) {
+      await storage.remove([applicant.logo_path]);
+      await followSharedPhoto(supabase, id, applicant.logo_path, null);
+    }
     await supabase.from("applicants").update({ logo_path: null }).eq("id", id);
+    revalidatePath("/admin/applicants");
     revalidatePath(`/admin/applicants/${id}`);
     return { status: "saved", message: "Photo removed." };
   }
@@ -197,6 +246,9 @@ export async function updateLogo(_prev: LogoState, formData: FormData): Promise<
   }
 
   await supabase.from("applicants").update({ logo_path: path }).eq("id", id);
+  if (applicant.logo_path) await followSharedPhoto(supabase, id, applicant.logo_path, path);
+
+  revalidatePath("/admin/applicants");
   revalidatePath(`/admin/applicants/${id}`);
   return { status: "saved", message: "Photo updated." };
 }

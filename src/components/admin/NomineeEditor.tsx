@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useActionState, type ReactNode } from "react";
+import { useActionState, useRef, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 
 import {
@@ -14,6 +14,7 @@ import {
 } from "@/app/admin/(dashboard)/nominees/[id]/state";
 import { Button } from "@/components/ui/Button";
 import { Field, Label, inputClass, selectClass, textareaClass } from "@/components/ui/Field";
+import { LogoField, type LogoFieldHandle } from "@/components/ui/LogoField";
 import type { Category, NomineeWithCategory } from "@/lib/types";
 
 function Panel({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
@@ -69,6 +70,9 @@ export function NomineeEditor({
     updateNomineePhoto,
     EMPTY_NOMINEE_PHOTO_STATE,
   );
+  // The card is a square, so the crop that decides what voters see belongs on
+  // this screen too -- not only on the original entry.
+  const photoField = useRef<LogoFieldHandle>(null);
 
   const errors = state.fieldErrors ?? {};
 
@@ -78,44 +82,62 @@ export function NomineeEditor({
         title="Card photo"
         hint="Shown on the category voting page. Replacing it here leaves her original upload on the entry untouched."
       >
-        <div className="flex flex-wrap items-center gap-5">
-          {photoUrl ? (
-            <Image
-              src={photoUrl}
-              alt=""
-              aria-hidden="true"
-              width={104}
-              height={104}
-              unoptimized
-              className="size-26 rounded-xl object-cover ring-1 ring-line"
-              style={{ width: 104, height: 104 }}
-            />
-          ) : (
-            <span
-              style={{ width: 104, height: 104 }}
-              className="flex items-center justify-center rounded-xl bg-purple-soft
-                         px-3 text-center text-[12px] font-medium text-purple-royal
-                         ring-1 ring-purple-royal/10"
-            >
-              No photo
-            </span>
-          )}
+        <div className="flex flex-wrap items-start gap-5">
+          <div className="shrink-0 space-y-2">
+            {photoUrl ? (
+              <Image
+                src={photoUrl}
+                alt=""
+                aria-hidden="true"
+                width={128}
+                height={128}
+                unoptimized
+                className="rounded-xl object-cover ring-1 ring-line"
+                style={{ width: 128, height: 128 }}
+              />
+            ) : (
+              <span
+                style={{ width: 128, height: 128 }}
+                className="flex items-center justify-center rounded-xl bg-purple-soft
+                           px-3 text-center text-[12px] font-medium text-purple-royal
+                           ring-1 ring-purple-royal/10"
+              >
+                No photo
+              </span>
+            )}
 
-          <div className="flex min-w-[15rem] flex-1 flex-col gap-2">
-            <form action={photoAction} className="flex flex-wrap items-center gap-2">
+            {photoUrl && (
+              <button
+                type="button"
+                onClick={() => photoField.current?.cropFromUrl(photoUrl)}
+                style={{ width: 128 }}
+                className="inline-flex items-center justify-center gap-1.5 rounded-md border
+                           border-line px-2 py-1.5 text-[13px] font-medium text-ink
+                           transition-colors hover:border-accent/40 hover:text-accent"
+              >
+                <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="size-3.5">
+                  <path
+                    d="M5.5 1.5v13h13M1.5 5.5h13v13"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                Crop
+              </button>
+            )}
+          </div>
+
+          <div className="flex min-w-[15rem] flex-1 flex-col gap-3">
+            <form action={photoAction} className="space-y-3">
               <input type="hidden" name="id" value={nominee.id} />
               <input type="hidden" name="intent" value="replace" />
-              <input
-                type="file"
-                name="photo"
-                accept="image/jpeg,image/png,image/webp"
-                className="min-w-0 flex-1 text-[13px] text-ink-muted
-                           file:mr-3 file:rounded-md file:border-0 file:bg-purple-soft
-                           file:px-3 file:py-1.5 file:text-[13px] file:font-semibold
-                           file:text-purple-royal"
-              />
-              <Button type="submit" variant="secondary" className="px-4 py-2">
-                Upload
+              {/* Same field as the public form and the entry screen: downscales
+                * in the browser, and crops to the square the card renders. */}
+              <LogoField name="photo" id={`photo-${nominee.id}`} aspect={1} ref={photoField} />
+              <Button type="submit" variant="secondary" className="w-full sm:w-auto sm:px-6">
+                {photoUrl ? "Replace photo" : "Upload photo"}
               </Button>
             </form>
 
