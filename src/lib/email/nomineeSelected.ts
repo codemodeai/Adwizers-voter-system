@@ -14,16 +14,28 @@ import type { Email } from "@/lib/email/resend";
  * Inline styles and a table shell, because that is what email clients render
  * predictably -- Gmail strips <style> blocks and Outlook ignores flexbox.
  */
+/**
+ * The one caveat this email has to carry: the category list is not final until
+ * voting opens, and a nominee reading "Category: X" would otherwise take it as
+ * settled. Kept as a constant so the plain-text and HTML halves cannot drift.
+ */
+const CATEGORY_NOTICE =
+  "Categories may change. Final categories will be announced during voting.";
+
 export function nomineeSelectedEmail(params: {
   to: string;
   name: string;
   businessName: string;
   categoryName: string;
+  /** Her nominee number (AWE2026-001), or null on a row promoted before the
+   *  column existed -- in which case the email simply does not mention one
+   *  rather than showing a blank field. */
+  code: string | null;
   /** Absolute URL of her category's voting page, or null when the public
    *  origin is not configured (local development). */
   voteUrl: string | null;
 }): Email {
-  const { to, name, businessName, categoryName, voteUrl } = params;
+  const { to, name, businessName, categoryName, code, voteUrl } = params;
 
   const firstName = name.trim().split(/\s+/)[0] || name.trim();
   const subject = `You're a nominee — AWE Awards 2026 (${categoryName})`;
@@ -33,14 +45,18 @@ export function nomineeSelectedEmail(params: {
     "",
     `Your entry has been selected as a nominee in the AWE Awards 2026.`,
     "",
+    ...(code ? [`Nominee ID: ${code}`] : []),
     `Category: ${categoryName}`,
     `Business: ${businessName}`,
     "",
+    ...(code ? [`Please quote your Nominee ID when you contact us.`, ""] : []),
     voteUrl
       ? `Your nominee card is now on your category's page: ${voteUrl}`
       : `Your nominee card is now on your category's page.`,
     "",
     "Public voting opens shortly. We will let you know the moment it does, so you can share your category page with your customers and community.",
+    "",
+    CATEGORY_NOTICE,
     "",
     "Congratulations,",
     "Team AWE Awards 2026",
@@ -77,6 +93,19 @@ export function nomineeSelectedEmail(params: {
               </p>
 
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4ecf8;border-radius:10px;">
+                ${
+                  code
+                    ? `<tr>
+                  <td style="padding:14px 16px 12px;border-bottom:1px solid #e2d4ec;">
+                    <p style="margin:0;font:400 13px/1.6 Arial,Helvetica,sans-serif;color:#6b6472;">Your Nominee ID</p>
+                    <p style="margin:2px 0 0;font:700 20px/1.35 'Courier New',Courier,monospace;letter-spacing:.04em;color:#c2006e;">${escapeHtml(code)}</p>
+                    <p style="margin:4px 0 0;font:400 12px/1.55 Arial,Helvetica,sans-serif;color:#6b6472;">
+                      Please quote this whenever you contact us about the awards.
+                    </p>
+                  </td>
+                </tr>`
+                    : ""
+                }
                 <tr>
                   <td style="padding:14px 16px;">
                     <p style="margin:0;font:400 13px/1.6 Arial,Helvetica,sans-serif;color:#6b6472;">Category</p>
@@ -105,11 +134,20 @@ export function nomineeSelectedEmail(params: {
 
           <tr>
             <td style="padding:20px 28px 26px;">
-              <p style="margin:0 0 16px;font:400 14px/1.65 Arial,Helvetica,sans-serif;color:#2a2a2a;">
+              <p style="margin:0 0 14px;font:400 14px/1.65 Arial,Helvetica,sans-serif;color:#2a2a2a;">
                 Public voting opens shortly. We&rsquo;ll let you know the moment it does, so you can
                 share your category page with your customers and community.
               </p>
-              <p style="margin:0;font:400 14px/1.65 Arial,Helvetica,sans-serif;color:#2a2a2a;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fdf6ec;border-left:3px solid #c68f45;border-radius:6px;">
+                <tr>
+                  <td style="padding:11px 14px;">
+                    <p style="margin:0;font:400 13px/1.6 Arial,Helvetica,sans-serif;color:#7a5a22;">
+                      ${escapeHtml(CATEGORY_NOTICE)}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:16px 0 0;font:400 14px/1.65 Arial,Helvetica,sans-serif;color:#2a2a2a;">
                 Congratulations,<br>
                 <strong style="color:#33004a;">Team AWE Awards 2026</strong>
               </p>

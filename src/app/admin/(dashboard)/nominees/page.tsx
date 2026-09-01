@@ -131,6 +131,14 @@ export default async function NomineesPage() {
                 />
 
                 <div className="min-w-[10rem] flex-1">
+                  {/* The number the organisers quote on the phone -- above the
+                    * name, because that is what someone scanning for a
+                    * specific nominee ID is reading down. */}
+                  {nominee.code && (
+                    <p className="font-mono text-[11px] font-semibold tracking-wide text-ink-muted">
+                      {nominee.code}
+                    </p>
+                  )}
                   <Link
                     href={`/admin/nominees/${nominee.id}`}
                     className="block truncate font-semibold text-purple-royal hover:text-magenta-royal"

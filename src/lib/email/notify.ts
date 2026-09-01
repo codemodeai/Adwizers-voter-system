@@ -8,6 +8,8 @@ import { absoluteCategoryVoteUrl } from "@/lib/nominees";
 
 export type NotifyParams = {
   nomineeId: string;
+  /** Her AWE2026-001 number, or null on a row that predates the column. */
+  code: string | null;
   email: string | null;
   name: string;
   businessName: string;
@@ -47,6 +49,7 @@ export async function notifyNominee(
       name: params.name,
       businessName: params.businessName,
       categoryName: params.categoryName,
+      code: params.code,
       voteUrl: absoluteCategoryVoteUrl(params.categorySlug),
     }),
   );

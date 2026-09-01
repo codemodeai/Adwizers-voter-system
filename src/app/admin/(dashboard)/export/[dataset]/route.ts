@@ -117,7 +117,7 @@ export async function GET(
 
     return csvResponse(
       toCsv(rows, [
-        "id", "display_name", "business_name", "category", "area_location", "bio",
+        "code", "id", "display_name", "business_name", "category", "area_location", "bio",
         "is_published", "sort_order",
         "applicant_id", "applicant_name", "applicant_email", "applicant_whatsapp",
         "social_instagram", "social_facebook", "social_website", "social_whatsapp",

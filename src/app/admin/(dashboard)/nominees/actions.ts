@@ -60,12 +60,13 @@ export async function resendNomineeEmail(id: string): Promise<NomineeActionResul
 
   const { data: nominee } = await supabase
     .from("nominees")
-    .select(
-      "id, display_name, business_name, applicants(email), categories(name, slug)",
-    )
+    // `*` so a resend still works against a database that predates the
+    // nominee-number column; the email leaves the number out when it is absent.
+    .select("*, applicants(email), categories(name, slug)")
     .eq("id", id)
     .maybeSingle<{
       id: string;
+      code?: string | null;
       display_name: string;
       business_name: string;
       applicants: { email: string | null } | null;
@@ -77,6 +78,7 @@ export async function resendNomineeEmail(id: string): Promise<NomineeActionResul
 
   const problem = await notifyNominee(supabase, {
     nomineeId: nominee.id,
+    code: nominee.code ?? null,
     email: nominee.applicants?.email ?? null,
     name: nominee.display_name,
     businessName: nominee.business_name,

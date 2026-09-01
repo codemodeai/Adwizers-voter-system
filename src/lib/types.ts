@@ -120,6 +120,12 @@ export function categoryLabel(applicant: ApplicantWithCategory): string {
  */
 export type Nominee = {
   id: string;
+  /**
+   * Her nominee number, AWE2026-001 -- assigned by the database at promotion
+   * and quoted in the selection email. Nullable only for the window before the
+   * migration that adds the column has been run; every row has one after that.
+   */
+  code: string | null;
   applicant_id: string;
   category_id: number;
   display_name: string;

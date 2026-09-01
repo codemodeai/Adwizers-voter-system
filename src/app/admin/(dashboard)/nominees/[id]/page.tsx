@@ -41,6 +41,11 @@ export default async function NomineePage({ params }: PageProps<"/admin/nominees
 
         <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
+            {nominee.code && (
+              <p className="font-mono text-[12px] font-semibold tracking-wide text-magenta-royal">
+                {nominee.code}
+              </p>
+            )}
             <h1 className="truncate text-2xl font-bold tracking-tight text-purple-royal">
               {nominee.display_name}
             </h1>

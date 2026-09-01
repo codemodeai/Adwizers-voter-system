@@ -139,8 +139,12 @@ export async function promoteToNominee(id: string): Promise<PromoteResult> {
       social_whatsapp: applicant.social_whatsapp,
       is_published: true,
     })
-    .select("id")
-    .single();
+    // `*` rather than a column list: the nominee number is filled in by the
+    // database's own default, so it can only be read back off the inserted
+    // row -- and naming it here would make every promotion fail against a
+    // database where that migration has not been run yet.
+    .select("*")
+    .single<{ id: string; code?: string | null }>();
 
   if (insertError || !nominee) {
     return { ok: false, error: insertError?.message ?? "Could not create the nominee profile." };
@@ -160,6 +164,7 @@ export async function promoteToNominee(id: string): Promise<PromoteResult> {
 
   const notice = await notifyNominee(supabase, {
     nomineeId: nominee.id,
+    code: nominee.code ?? null,
     email: applicant.email,
     name: applicant.full_name,
     businessName: applicant.business_name,
