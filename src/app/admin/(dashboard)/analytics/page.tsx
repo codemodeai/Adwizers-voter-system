@@ -49,7 +49,7 @@ export default async function AnalyticsPage() {
           label="Unique voters"
           value={stats.uniqueVoters}
           tone="text-purple-royal"
-          hint="By verified email"
+          hint="By email address"
         />
         <StatTile
           label="Nominees"

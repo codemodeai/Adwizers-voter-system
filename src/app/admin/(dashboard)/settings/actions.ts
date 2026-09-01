@@ -33,6 +33,7 @@ export async function updateVotingRules(
   const perDevice = int(formData, "rate_limit_per_device_per_hour");
   const session = int(formData, "verify_session_minutes");
   const maxSelections = int(formData, "max_selections_per_submit");
+  const requireVerification = formData.get("require_email_verification") === "on";
 
   if (!perIp || perIp < 1) return { status: "error", message: "Votes per IP must be at least 1." };
   if (!perDevice || perDevice < 1) {
@@ -53,6 +54,7 @@ export async function updateVotingRules(
     .update({
       rate_limit_per_ip_per_minute: perIp,
       rate_limit_per_device_per_hour: perDevice,
+      require_email_verification: requireVerification,
       verify_session_minutes: session,
       max_selections_per_submit: maxSelections,
       updated_by: user.id,

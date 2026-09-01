@@ -126,14 +126,26 @@ export default async function SettingsPage() {
             ok={Boolean(ADMIN_ORIGIN)}
             note={ADMIN_ORIGIN ?? undefined}
           />
+          {/* Only a problem while the ballot actually sends codes. With
+            * verification off this is dormant configuration, not a fault, and
+            * a red badge here would send someone chasing a blocker that is no
+            * longer in the way. */}
           <Row
             label="Voter codes (Amazon SES)"
-            value={sesConfigured() ? `SES · ${sesRegion()}` : "Falling back to Resend"}
-            ok={sesConfigured()}
+            value={
+              !rules.require_email_verification
+                ? "Not in use"
+                : sesConfigured()
+                  ? `SES · ${sesRegion()}`
+                  : "Falling back to Resend"
+            }
+            ok={!rules.require_email_verification || sesConfigured()}
             note={
-              sesConfigured()
-                ? "Verification codes send through SES."
-                : "SES_REGION, SES_ACCESS_KEY_ID, SES_SECRET_ACCESS_KEY and SES_FROM are unset on the form deployment, so codes use Resend — capped at 100 a day on the free tier."
+              !rules.require_email_verification
+                ? "Email verification is switched off, so the ballot sends no codes. Votes are held to one per nominee by mobile number, email address and device instead. Turn it back on in the rules above once SES is out of the sandbox."
+                : sesConfigured()
+                  ? "Verification codes send through SES."
+                  : "SES_REGION, SES_ACCESS_KEY_ID, SES_SECRET_ACCESS_KEY and SES_FROM are unset on the form deployment, so codes use Resend — capped at 100 a day on the free tier."
             }
           />
           <Row
@@ -186,8 +198,8 @@ export default async function SettingsPage() {
       </section>
 
       <p className="text-[12px] leading-relaxed text-ink-muted">
-        The rate limits and verification window are stored in the database and read by the ballot
-        when it lands — they are live settings, not documentation.
+        The rate limits and the verification switch are stored in the database and read by the
+        ballot on every submission — they are live settings, not documentation.
       </p>
     </div>
   );

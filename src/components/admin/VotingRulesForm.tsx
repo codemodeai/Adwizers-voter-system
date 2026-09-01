@@ -30,6 +30,29 @@ export function VotingRulesForm({ rules }: { rules: VotingRules }) {
 
   return (
     <form action={action} className="space-y-5">
+      {/* First, because it decides whether the field under it means anything
+        * -- and because it is the one setting here that changes what a voter
+        * is asked to do, rather than how much of it she may do. */}
+      <label className="flex gap-3 rounded-xl border border-line bg-purple-soft/40 px-4 py-3.5">
+        <input
+          type="checkbox"
+          name="require_email_verification"
+          defaultChecked={rules.require_email_verification}
+          className="mt-0.5 size-4 shrink-0 accent-magenta-royal"
+        />
+        <span className="text-[13px] leading-relaxed text-charcoal">
+          <strong className="font-semibold text-purple-royal">
+            Email a 6-digit code before recording a vote
+          </strong>
+          <br />
+          Off while Amazon SES is still in its sandbox — with it off, votes are recorded the moment
+          the voter submits. Duplicates are still blocked either way: one vote per nominee per
+          mobile number, per email address and per device, on top of the rate limits below. What a
+          code adds is proof the email address is really hers, so leaving this off means a
+          determined voter can invent a new address per vote.
+        </span>
+      </label>
+
       <div className="grid gap-4 sm:grid-cols-2">
         <Field
           label="Votes per minute, per IP address"
@@ -64,7 +87,7 @@ export function VotingRulesForm({ rules }: { rules: VotingRules }) {
         <Field
           label="Email verification lasts (minutes)"
           htmlFor="verify_session_minutes"
-          hint="How long one emailed code unlocks voting for. Verification is once per visit, not once per vote — this is what keeps the code count low. Plan default: 30–60."
+          hint="Only used while the code above is switched on: how long one code unlocks voting for. Verification is once per visit, not once per vote. Plan default: 30–60."
         >
           <input
             id="verify_session_minutes"

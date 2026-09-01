@@ -11,6 +11,7 @@ import {
   CATEGORY_STATE_LABEL,
   VOTING_STATUS_LABEL,
   categoryVotingState,
+  getVotingRules,
   getVotingSettings,
   type CategoryVotingState,
 } from "@/lib/voting";
@@ -48,8 +49,9 @@ const CHIP: Record<CategoryVotingState, string> = {
  * discovered.
  */
 export default async function VotingPage() {
-  const [settings, groups] = await Promise.all([
+  const [settings, rules, groups] = await Promise.all([
     getVotingSettings(),
+    getVotingRules(),
     listCategoriesWithNominees(),
   ]);
 
@@ -188,15 +190,20 @@ export default async function VotingPage() {
         )}
       </section>
 
-      {/* The honest caveat: the switch is real, the ballot is not built. */}
+      {/* What "open" actually turns on, since the answer changed: the emailed
+        * code is a setting now, and an admin opening voting should know which
+        * defences are standing without reading the code. */}
       <div className="rounded-xl border border-gold-champagne/30 bg-gold-soft px-4 py-3 text-[13px] leading-relaxed text-gold-champagne">
-        <strong className="font-semibold">The ballot itself is still to come.</strong> These
-        switches are live and the category pages honour them, but the vote form — Turnstile, the
-        emailed code, and the duplicate-vote rules from plan section 8 — arrives with the voter
-        portal. Until then a category page shows its state and its nominee cards without accepting
-        a vote.{" "}
-        <Link href="/admin/categories" className="underline underline-offset-2">
-          See the category pages
+        <strong className="font-semibold">What &ldquo;open&rdquo; turns on.</strong> A voter picks
+        her nominees, fills her details once and submits. Each nominee can be voted for once per
+        mobile number, once per email address and once per device, on top of Turnstile and the rate
+        limits. The emailed 6-digit code is a separate switch, currently{" "}
+        <strong className="font-semibold">
+          {rules.require_email_verification ? "on" : "off"}
+        </strong>{" "}
+        — change it in{" "}
+        <Link href="/admin/settings" className="underline underline-offset-2">
+          Settings
         </Link>
         .
       </div>

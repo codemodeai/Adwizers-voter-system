@@ -71,10 +71,11 @@ function Submit({ label, busy }: { label: string; busy: string }) {
 /**
  * The ballot (Final Plan sections 6, 7, 8), in two steps.
  *
- * Step one is the nominees and nothing else; step two is the details and the
- * emailed code. Section 6 requires one submission covering every nominee
- * checked, and that is preserved -- the split is presentational, and the whole
- * selection still travels in a single submit.
+ * Step one is the nominees and nothing else; step two is the details, and then
+ * the emailed code if the admin has switched verification on. Section 6
+ * requires one submission covering every nominee checked, and that is preserved
+ * -- the split is presentational, and the whole selection still travels in a
+ * single submit.
  *
  * Two steps rather than one long page because the two tasks want different
  * attention: choosing is browsing, comparing, reading bios; filling in details
@@ -91,12 +92,17 @@ export function VoteForm({
   nominees,
   photoUrls,
   turnstileSiteKey,
+  requireCode,
 }: {
   slug: string;
   categoryName: string;
   nominees: PublicNominee[];
   photoUrls: Record<string, string>;
   turnstileSiteKey: string | null;
+  /** Whether submitting sends a code and waits for it, or records the votes
+   *  there and then. Decided by the admin, read server-side -- so the button
+   *  never promises an email that is not coming. */
+  requireCode: boolean;
 }) {
   const [step, setStep] = useState<"select" | "details">("select");
   const [selected, setSelected] = useState<string[]>([]);
@@ -124,7 +130,9 @@ export function VoteForm({
   }
 
   if (active.status === "done") {
-    return <Receipt outcomes={active.outcomes} categoryName={categoryName} />;
+    return (
+      <Receipt outcomes={active.outcomes} categoryName={categoryName} requireCode={requireCode} />
+    );
   }
 
   // ---- step one: the nominees, and nothing else --------------------------
@@ -236,13 +244,19 @@ export function VoteForm({
 
           <div className="mt-4 rounded-2xl border border-line bg-surface/70 p-5 sm:p-6">
             {awaitingCode ? (
-              <CodeStep email={active.email} message={active.message} />
+              <CodeStep
+                email={active.email}
+                message={active.message}
+                turnstileSiteKey={turnstileSiteKey}
+              />
             ) : (
               <>
                 <h2 className="text-base font-bold text-heading">Your details</h2>
                 <p className="mt-1 text-[13px] leading-relaxed text-ink-muted">
-                  Filled once, however many nominees you picked. We email you a code to confirm
-                  it&rsquo;s you — one code covers your whole visit.
+                  Filled once, however many nominees you picked.{" "}
+                  {requireCode
+                    ? "We email you a code to confirm it’s you — one code covers your whole visit."
+                    : "Your mobile number and email keep voting to one vote per nominee, so please use your own."}
                 </p>
 
                 <div className="mt-4 grid gap-3.5 sm:grid-cols-2">
@@ -269,7 +283,7 @@ export function VoteForm({
                     label="Email"
                     required
                     type="email"
-                    hint="Your code comes here"
+                    hint={requireCode ? "Your code comes here" : "One vote per nominee, per email"}
                     value={details.email}
                     onChange={(v) => setDetails((d) => ({ ...d, email: v }))}
                   />
@@ -294,7 +308,11 @@ export function VoteForm({
                 {active.status === "error" && <Problem>{active.message}</Problem>}
 
                 <div className="mt-5">
-                  <Submit label="Send my code" busy="Checking…" />
+                  {requireCode ? (
+                    <Submit label="Send my code" busy="Checking…" />
+                  ) : (
+                    <Submit label="Submit my votes" busy="Recording…" />
+                  )}
                 </div>
               </>
             )}
@@ -346,7 +364,18 @@ function StepBar({ step }: { step: 1 | 2 }) {
   );
 }
 
-function CodeStep({ email, message }: { email: string; message?: string }) {
+function CodeStep({
+  email,
+  message,
+  turnstileSiteKey,
+}: {
+  email: string;
+  message?: string;
+  /** The second submit is checked by the same gate as the first, captcha
+   *  included -- so the widget has to be on this step too, or the token it
+   *  looks for is simply not there. */
+  turnstileSiteKey: string | null;
+}) {
   return (
     <>
       <h2 className="text-base font-bold text-heading">Check your email</h2>
@@ -372,6 +401,15 @@ function CodeStep({ email, message }: { email: string; message?: string }) {
         />
       </label>
 
+      {turnstileSiteKey && (
+        <div
+          className="cf-turnstile mt-4"
+          data-sitekey={turnstileSiteKey}
+          data-theme="dark"
+          data-size="flexible"
+        />
+      )}
+
       {message && <Problem>{message}</Problem>}
 
       <div className="mt-5">
@@ -394,9 +432,11 @@ function CodeStep({ email, message }: { email: string; message?: string }) {
 function Receipt({
   outcomes,
   categoryName,
+  requireCode,
 }: {
   outcomes: { nomineeId: string; name: string; status: string; voteRef?: string }[];
   categoryName: string;
+  requireCode: boolean;
 }) {
   const recorded = outcomes.filter((o) => o.status === "recorded");
   const already = outcomes.filter((o) => o.status === "already");
@@ -449,7 +489,10 @@ function Receipt({
       )}
 
       <p className="mt-5 text-[12px] text-ink-muted">
-        Keep these reference codes. Voting in another category needs no new code this visit.
+        Keep these reference codes.{" "}
+        {requireCode
+          ? "Voting in another category needs no new code this visit."
+          : "You can vote in another category from its own page."}
       </p>
     </div>
   );

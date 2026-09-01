@@ -95,6 +95,14 @@ export async function getPublicVotingSettings(): Promise<VotingSettings> {
 export type VotingRules = {
   rate_limit_per_ip_per_minute: number;
   rate_limit_per_device_per_hour: number;
+  /**
+   * Whether the ballot emails a 6-digit code and holds the vote until it comes
+   * back. Off by default: the duplicate-vote rules live on the votes table, so
+   * they hold without it, and requiring a code makes voting depend on SES
+   * being able to send. Turning it on is the deliberate act.
+   */
+  require_email_verification: boolean;
+  /** Only consulted while verification is on. */
   verify_session_minutes: number;
   /** Null means no cap -- section 7 allows voting for every nominee in a
    *  category in one submission. */
@@ -106,6 +114,7 @@ export type VotingRules = {
 export const DEFAULT_RULES: VotingRules = {
   rate_limit_per_ip_per_minute: 3,
   rate_limit_per_device_per_hour: 20,
+  require_email_verification: false,
   verify_session_minutes: 45,
   max_selections_per_submit: null,
   results_published_at: null,
@@ -124,10 +133,29 @@ export async function getVotingRules(): Promise<VotingRules> {
       row.rate_limit_per_ip_per_minute ?? DEFAULT_RULES.rate_limit_per_ip_per_minute,
     rate_limit_per_device_per_hour:
       row.rate_limit_per_device_per_hour ?? DEFAULT_RULES.rate_limit_per_device_per_hour,
+    require_email_verification:
+      row.require_email_verification ?? DEFAULT_RULES.require_email_verification,
     verify_session_minutes: row.verify_session_minutes ?? DEFAULT_RULES.verify_session_minutes,
     max_selections_per_submit: row.max_selections_per_submit ?? null,
     results_published_at: row.results_published_at ?? null,
   };
+}
+
+/**
+ * Does the ballot ask for an emailed code? Read on its own by the voting page,
+ * which needs it only to decide what the form promises the voter -- and with
+ * the service role, because anon deliberately cannot see this row's thresholds.
+ *
+ * Falls back to "no" when the column or the row is missing: that is both the
+ * default and the safe direction to be wrong in, since a page that wrongly
+ * promised a code would leave a voter waiting for an email never coming.
+ */
+export async function emailVerificationRequired(): Promise<boolean> {
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const supabase = createAdminClient();
+
+  const { data } = await supabase.from("voting_settings").select("*").eq("id", 1).maybeSingle();
+  return ((data ?? {}) as Partial<VotingRules>).require_email_verification ?? false;
 }
 
 /** Dates are shown in IST everywhere, labelled as such -- the client and every
@@ -167,6 +195,8 @@ export async function getRuntimeVotingConfig(): Promise<VotingRules & { status: 
       row.rate_limit_per_ip_per_minute ?? DEFAULT_RULES.rate_limit_per_ip_per_minute,
     rate_limit_per_device_per_hour:
       row.rate_limit_per_device_per_hour ?? DEFAULT_RULES.rate_limit_per_device_per_hour,
+    require_email_verification:
+      row.require_email_verification ?? DEFAULT_RULES.require_email_verification,
     verify_session_minutes: row.verify_session_minutes ?? DEFAULT_RULES.verify_session_minutes,
     max_selections_per_submit: row.max_selections_per_submit ?? null,
     results_published_at: row.results_published_at ?? null,

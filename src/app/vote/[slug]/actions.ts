@@ -30,6 +30,13 @@ import type { VoteOutcome, VoteState } from "./state";
  *
  * Both entry points below run the same sequence; they differ only in whether a
  * code is being requested or supplied.
+ *
+ * Step 3 is now switchable, and off unless an admin turns it on
+ * (`require_email_verification`). With it off the vote is cast straight after
+ * the captcha, and what holds a voter to one vote per nominee is what always
+ * did the work: the three unique indexes on the votes table (mobile, email,
+ * device), plus the rate limits above them. The code proved the address was
+ * hers; nothing else about the duplicate rules depended on it.
  */
 
 const MOBILE = /^[+]?[\d\s-]{7,20}$/;
@@ -297,10 +304,14 @@ export async function startVote(_prev: VoteState, formData: FormData): Promise<V
 
   const { category, rules, deviceId, ipHash } = checked;
 
-  // Section 8: verification is once per visit. An already-verified session
-  // skips the code entirely, even across categories.
-  const session = await verifiedSessionFor(input.email);
-  if (session) {
+  // Two ways past the code, and they are different facts: verification is
+  // switched off altogether, or it is on and this visitor has already done it
+  // (section 8 -- once per visit, across categories).
+  const session = rules.require_email_verification
+    ? await verifiedSessionFor(input.email)
+    : null;
+
+  if (!rules.require_email_verification || session) {
     const outcomes = await castVotes({
       nomineeIds: input.nomineeIds,
       categoryId: category.id,
@@ -360,14 +371,19 @@ export async function submitWithCode(_prev: VoteState, formData: FormData): Prom
     return { status: "code_sent", email: input.email, message: "Enter the 6-digit code." };
   }
 
-  const verified = await verifyCode(input.email, code);
-  if (!verified.ok) {
-    return { status: "code_sent", email: input.email, message: verified.error };
-  }
-
   const checked = await gate(slug, input);
   if (!checked.ok) {
     return { status: "error", message: checked.error, field: checked.field };
+  }
+
+  // Verification can be switched off between a code being sent and it being
+  // typed back. The already-sent code stays honoured rather than rejected --
+  // she is holding a code this site emailed her -- but a session that never
+  // got one cannot be conjured here either, so an unverifiable code is
+  // refused exactly as it would have been.
+  const verified = await verifyCode(input.email, code);
+  if (!verified.ok) {
+    return { status: "code_sent", email: input.email, message: verified.error };
   }
 
   const outcomes = await castVotes({

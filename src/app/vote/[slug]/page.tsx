@@ -9,6 +9,7 @@ import { publicCategoryPage, signNomineePhotos } from "@/lib/nominees";
 import { turnstileSiteKey } from "@/lib/turnstile";
 import {
   categoryVotingState,
+  emailVerificationRequired,
   getPublicVotingSettings,
   type CategoryVotingState,
 } from "@/lib/voting";
@@ -39,9 +40,10 @@ export async function generateMetadata({
 
 export default async function CategoryVotePage({ params }: PageProps<"/vote/[slug]">) {
   const { slug } = await params;
-  const [{ category, nominees }, settings] = await Promise.all([
+  const [{ category, nominees }, settings, requireCode] = await Promise.all([
     publicCategoryPage(slug),
     getPublicVotingSettings(),
+    emailVerificationRequired(),
   ]);
 
   if (!category) notFound();
@@ -89,6 +91,7 @@ export default async function CategoryVotePage({ params }: PageProps<"/vote/[slu
             nominees={nominees}
             photoUrls={photoUrls}
             turnstileSiteKey={turnstileSiteKey()}
+            requireCode={requireCode}
           />
         ) : nominees.length > 0 ? (
           <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
