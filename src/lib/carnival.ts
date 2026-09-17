@@ -7,11 +7,11 @@
  *
  * Source: the Business Carnival 2026 booking poster.
  */
-export const STALL_FEE_INR = 4999;
+export const STALL_FEE_INR = 2999;
 
 /** Written out rather than computed, so the rupee sign and the grouping never
  *  depend on the visitor's locale. */
-export const STALL_FEE_DISPLAY = "₹4,999";
+export const STALL_FEE_DISPLAY = "₹2,999";
 
 /** The three facts a stall holder needs before deciding: when, where, and how
  *  few spaces are left to decide about. */
