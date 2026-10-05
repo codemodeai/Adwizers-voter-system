@@ -7,6 +7,7 @@ import { generateCode, sendVerificationCode } from "@/lib/email/verificationCode
 import { checkRateLimits, logAttempt } from "@/lib/rateLimit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normaliseNomineeCode, publicNomineePage } from "@/lib/nominees";
+import { normaliseMobile } from "@/lib/phone";
 import { createPublicClient } from "@/lib/supabase/public";
 import { verifyTurnstile } from "@/lib/turnstile";
 import {
@@ -34,10 +35,17 @@ import type { VoteOutcome, VoteState } from "./state";
  *
  * Step 3 is now switchable, and off unless an admin turns it on
  * (`require_email_verification`). With it off the vote is cast straight after
- * the captcha, and what holds a voter to one vote per nominee is what always
- * did the work: the three unique indexes on the votes table (mobile, email,
- * device), plus the rate limits above them. The code proved the address was
- * hers; nothing else about the duplicate rules depended on it.
+ * the captcha, and what holds a voter to one vote per nominee is the two
+ * unique indexes on the votes table -- mobile number and email -- plus the
+ * rate limits above them.
+ *
+ * There is deliberately no per-device rule (dropped at the client's request):
+ * a family sharing one phone can each vote for the same nominee. The device id
+ * is still recorded and still feeds the hourly per-device rate limit.
+ *
+ * The mobile is reduced to one standard form (+919876543210) before it is
+ * compared or stored -- see `@/lib/phone` -- so typing the same number with
+ * spaces, a 0 or a +91 does not make it a different voter.
  *
  * Votes are cast from a nominee's personal page (/nominee/AWE2026-007), which
  * posts her number. The category and nominee are resolved from that number on
@@ -47,13 +55,15 @@ import type { VoteOutcome, VoteState } from "./state";
  * already open in someone's browser when this shipped can finish its submit.
  */
 
-const MOBILE = /^[+]?[\d\s-]{7,20}$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Parsed = {
   nomineeIds: string[];
   name: string;
+  /** Standard form (+919876543210), or empty when the number was unusable --
+   *  in which case `mobileError` says why. */
   mobile: string;
+  mobileError?: string;
   email: string;
   location: string;
   token: string | null;
@@ -61,6 +71,10 @@ type Parsed = {
 };
 
 function parse(formData: FormData): Parsed {
+  // Reduced to one standard form before anything compares or stores it, so the
+  // same phone typed five ways is still one voter.
+  const mobile = normaliseMobile(String(formData.get("voter_mobile") ?? ""));
+
   return {
     nomineeIds: formData
       .getAll("nominee")
@@ -69,7 +83,8 @@ function parse(formData: FormData): Parsed {
       // reported back as "already voted for" in the same submission.
       .filter((v, i, all) => all.indexOf(v) === i),
     name: String(formData.get("voter_name") ?? "").trim(),
-    mobile: String(formData.get("voter_mobile") ?? "").trim(),
+    mobile: mobile.ok ? mobile.mobile : "",
+    mobileError: mobile.ok ? undefined : mobile.error,
     email: String(formData.get("voter_email") ?? "").trim().toLowerCase(),
     location: String(formData.get("voter_location") ?? "").trim(),
     token: (String(formData.get("cf-turnstile-response") ?? "").trim() || null),
@@ -105,7 +120,9 @@ async function readBallot(formData: FormData): Promise<{ slug: string; input: Pa
 function validate(input: Parsed): string | null {
   if (input.nomineeIds.length === 0) return "This nominee's voting page is closed.";
   if (!input.name) return "Please enter your name.";
-  if (!input.mobile || !MOBILE.test(input.mobile)) return "Please enter a valid mobile number.";
+  // The mobile has already been reduced to its standard form in `readBallot`;
+  // an empty value here means it was not a usable number.
+  if (!input.mobile) return input.mobileError ?? "Please enter a valid mobile number.";
   if (!input.email || !EMAIL.test(input.email)) return "Please enter a valid email address.";
   return null;
 }
@@ -227,7 +244,7 @@ async function gate(slug: string, input: Parsed): Promise<GateResult> {
 
 /**
  * Writes one row per nominee, each checked independently against the database's
- * three unique rules (section 8).
+ * unique rules: one vote per nominee per mobile number and per email.
  *
  * Explicitly not a transaction, and not a bulk insert. Section 6 requires that
  * nominees which pass are recorded while nominees that clash are skipped, in
@@ -273,8 +290,10 @@ async function castVotes(params: {
       continue;
     }
 
-    // 23505 is a unique violation -- one of the three signals already has a
-    // vote for this nominee. Anything else is a real failure.
+    // 23505 is a unique violation -- this mobile number or this email already
+    // has a vote for this nominee. Anything else is a real failure. ("device"
+    // remains only for a database where the device rule has not been dropped
+    // yet.)
     if (error.code === "23505") {
       const signal = error.message.includes("email")
         ? "email"

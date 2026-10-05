@@ -175,6 +175,9 @@ export function VoteForm({
                   label="Mobile number"
                   required
                   inputMode="tel"
+                  autoComplete="tel"
+                  placeholder="10-digit mobile number"
+                  hint="One vote per mobile number"
                   value={details.mobile}
                   onChange={(v) => setDetails((d) => ({ ...d, mobile: v }))}
                 />
@@ -371,6 +374,8 @@ function TextField({
   type = "text",
   inputMode,
   hint,
+  placeholder,
+  autoComplete,
 }: {
   id: string;
   name: string;
@@ -381,6 +386,8 @@ function TextField({
   type?: string;
   inputMode?: "tel" | "numeric" | "email";
   hint?: string;
+  placeholder?: string;
+  autoComplete?: string;
 }) {
   return (
     <label htmlFor={id} className="block">
@@ -397,6 +404,8 @@ function TextField({
         name={name}
         type={type}
         inputMode={inputMode}
+        autoComplete={autoComplete}
+        placeholder={placeholder}
         required={required}
         value={value}
         onChange={(event) => onChange(event.target.value)}

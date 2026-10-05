@@ -47,7 +47,8 @@ export function VotingRulesForm({ rules }: { rules: VotingRules }) {
           <br />
           Off while Amazon SES is still in its sandbox — with it off, votes are recorded the moment
           the voter submits. Duplicates are still blocked either way: one vote per nominee per
-          mobile number, per email address and per device, on top of the rate limits below. What a
+          mobile number and per email address, on top of the rate limits below. Several people
+          sharing one phone can each vote. What a
           code adds is proof the email address is really hers, so leaving this off means a
           determined voter can invent a new address per vote.
         </span>
@@ -72,7 +73,7 @@ export function VotingRulesForm({ rules }: { rules: VotingRules }) {
         <Field
           label="Votes per hour, per device"
           htmlFor="rate_limit_per_device_per_hour"
-          hint="Covers one real voter supporting several nominees from their links, while still stopping flooding. Plan default: 20."
+          hint="Not a one-vote rule — a shared phone can vote for the same nominee once per person. This only caps how fast one device can submit. Plan default: 20."
         >
           <input
             id="rate_limit_per_device_per_hour"

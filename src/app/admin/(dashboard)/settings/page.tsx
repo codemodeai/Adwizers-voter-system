@@ -142,7 +142,7 @@ export default async function SettingsPage() {
             ok={!rules.require_email_verification || sesConfigured()}
             note={
               !rules.require_email_verification
-                ? "Email verification is switched off, so the ballot sends no codes. Votes are held to one per nominee by mobile number, email address and device instead. Turn it back on in the rules above once SES is out of the sandbox."
+                ? "Email verification is switched off, so the ballot sends no codes. Votes are held to one per nominee by mobile number and email address instead. Turn it back on in the rules above once SES is out of the sandbox."
                 : sesConfigured()
                   ? "Verification codes send through SES."
                   : "SES_REGION, SES_ACCESS_KEY_ID, SES_SECRET_ACCESS_KEY and SES_FROM are unset on the form deployment, so codes use Resend — capped at 100 a day on the free tier."
