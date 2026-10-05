@@ -1,5 +1,6 @@
 import "server-only";
 
+import { selectAll } from "@/lib/selectAll";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -44,8 +45,16 @@ export async function analyticsSummary(): Promise<AnalyticsSummary> {
     supabase.from("categories").select("id, name, slug, is_active").order("sort_order"),
     supabase.from("nominees").select("id, category_id, display_name, business_name, is_published"),
     // Vote rows, not a count: the by-category tally, unique-voter count and
-    // top-nominee list all come from this one read rather than four.
-    supabase.from("votes").select("nominee_id, category_id, voter_email"),
+    // top-nominee list all come from this one read rather than four. Paged,
+    // because a single select stops at Supabase's 1,000-row cap.
+    selectAll<{ nominee_id: string; category_id: number; voter_email: string }>((from, to) =>
+      supabase
+        .from("votes")
+        .select("nominee_id, category_id, voter_email")
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+    ),
     supabase.from("vote_attempts").select("id", { count: "exact", head: true }),
   ]);
 
@@ -65,11 +74,7 @@ export async function analyticsSummary(): Promise<AnalyticsSummary> {
   }[];
 
   const votesUnavailable = Boolean(votesRes.error);
-  const votes = (votesRes.data ?? []) as {
-    nominee_id: string;
-    category_id: number;
-    voter_email: string;
-  }[];
+  const votes = votesRes.data;
 
   const votesPerCategory = new Map<number, number>();
   const votesPerNominee = new Map<string, number>();
