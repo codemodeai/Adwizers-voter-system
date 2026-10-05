@@ -22,19 +22,16 @@ export type CategoryCardNominee = {
   area_location: string | null;
   is_published: boolean;
   photo_path: string | null;
+  code: string | null;
 };
 
 /**
  * One category as a full-width box (Final Plan section 5).
  *
- * The category is the container and the nominees are cards inside it, because
- * that is the actual structure of the thing: section 6 says a nominee has no
- * link of her own and exists only as a card on her category's page. The screen
- * mirrors that -- one box per shared link, holding the cards that link leads
- * to, so what an admin sees here is what a voter will see there.
- *
- * The link sits in the box header rather than beside each nominee, for the same
- * reason: it belongs to the category, never to a person.
+ * The category is the container and the nominees are cards inside it. The link
+ * in the header is the category's directory page, which lists these same
+ * nominees with a button through to each one's personal voting link -- the
+ * personal links themselves are sent from the Nominees screen.
  */
 export function CategoryCard({
   id,
@@ -90,7 +87,7 @@ export function CategoryCard({
               ) : (
                 <>
                   <span className="font-semibold text-magenta-royal">{published.length}</span>{" "}
-                  nominee{published.length === 1 ? "" : "s"} live on this page
+                  nominee{published.length === 1 ? "" : "s"} live
                 </>
               )}
               {hidden > 0 && ` · ${hidden} hidden`}
@@ -132,6 +129,9 @@ export function CategoryCard({
           </form>
         ) : (
           <div className="mt-3.5">
+            <p className="mb-1.5 text-[12px] font-medium text-ink-muted">
+              Directory page — lists these nominees. Votes are cast on each nominee&rsquo;s own link.
+            </p>
             <LinkBlock url={voteUrl} disabled={!isActive} />
           </div>
         )}
@@ -211,6 +211,11 @@ function NomineeMiniCard({
         )}
 
         <span className="min-w-0 flex-1">
+          {nominee.code && (
+            <span className="block font-mono text-[10px] font-semibold tracking-wide text-ink-muted">
+              {nominee.code}
+            </span>
+          )}
           <span className="block truncate text-[13px] font-bold text-purple-royal">
             {nominee.display_name}
           </span>
@@ -242,7 +247,7 @@ function NomineeMiniCard({
 }
 
 /**
- * The shareable link, as one large copy target.
+ * The category's directory link, as one large copy target.
  *
  * Clicking anywhere copies. The clipboard write can be refused (insecure
  * origin, denied permission), so failure falls back to telling the admin to
@@ -366,8 +371,8 @@ function SlugEditor({ name, slug }: { name: string; slug: string }) {
         </span>
         {changed && (
           <span role="alert" className="block text-[12px] font-medium leading-snug text-magenta-dark">
-            This changes the shareable link. Anything already sent out pointing at /vote/{slug} stops
-            working.
+            This changes the category&rsquo;s directory link. Anything already sent out pointing at
+            /vote/{slug} stops working. Nominees&rsquo; own voting links are not affected.
           </span>
         )}
       </label>

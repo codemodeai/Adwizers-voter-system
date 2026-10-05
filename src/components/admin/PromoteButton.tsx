@@ -13,7 +13,7 @@ import type { ApplicantStatus, FormType } from "@/lib/types";
  * failing after the fact.
  *
  * It now does three irreversible-feeling things in one click: creates her
- * public profile, puts her card live on the category page, and emails her. So
+ * public profile, puts her voting page live, and emails her the link. So
  * it asks first. The confirmation is inline rather than a `confirm()` dialog --
  * a native dialog would block the page, and this one can say exactly what is
  * about to happen.
@@ -88,7 +88,7 @@ export function PromoteButton({
     return (
       <span className="inline-flex flex-col items-end gap-1">
         <span className="text-right text-[11px] leading-snug text-ink-muted">
-          Publishes her card and emails her.
+          Makes her voting page live and emails her the link.
         </span>
         <span className="inline-flex gap-1.5">
           <button

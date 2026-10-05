@@ -147,7 +147,10 @@ export type Nominee = {
 };
 
 export type NomineeWithCategory = Nominee & {
-  categories: Pick<Category, "id" | "name" | "slug"> | null;
+  categories: (Pick<Category, "id" | "name" | "slug"> & { is_active?: boolean }) | null;
+  /** The number she gave on her entry, for sending her link on WhatsApp.
+   *  Optional because not every read joins it. */
+  applicants?: { whatsapp_number: string | null } | null;
 };
 
 /** Where a nominee's notification actually got to, for the dashboard badge. */

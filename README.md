@@ -12,11 +12,25 @@ Built to the spec in [`docs/AWE_Awards_2026_Final_Plan.pdf`](docs/AWE_Awards_202
 | --- | --- | --- |
 | **1** | Registration form (Form 1) + Applicants module | ✅ Built |
 | **2** | Nominees — promote, public profile editing, Resend notification | ✅ Built |
-| 3 | Voter portal — category pages, Turnstile, SES codes, vote rules | Cards built; **ballot not open** |
-| 4 | Voting control, analytics, winner reveal, export, backup | Not started |
+| **3** | Voter portal — personal nominee links, Turnstile, optional SES codes, vote rules | ✅ Built |
+| **4** | Voting control, analytics, winner reveal, export, backup | ✅ Built |
 
-Dashboard modules from plan section 5 that belong to later phases are visible in
-the sidebar but marked **Soon**, so the finished shape is clear from day one.
+### Voting links
+
+Voting is **per nominee**: every nominee has a personal link,
+`/nominee/AWE2026-007`, built from the nominee ID the database already assigns
+at promotion. It never changes, so a link on a poster survives edits to her
+name. Admins send it from **Nominees** (Copy link / Send on WhatsApp — the chat
+opens straight to the WhatsApp number on her entry) and it is in the selection
+email. A voter opens it, fills name, mobile and email, and votes for her alone.
+
+The category link, `/vote/[slug]`, is now a **directory**: every nominee in the
+category with a button to her own page. No vote is cast there; it stays so the
+category links already shared still lead somewhere useful.
+
+The duplicate rules are unchanged — one vote per nominee per mobile, per email
+and per device, enforced by unique indexes on `votes`. Switching to personal
+links needed no schema change.
 
 ---
 
@@ -76,10 +90,11 @@ npm run dev
 | `/admin/login` | admin | Admin sign in |
 | `/admin/applicants` | admin | Applicants list — search, filter, paginate |
 | `/admin/applicants/[id]` | admin | Review & edit a submission |
-| `/admin/nominees` | admin | Nominees grouped by category — publish, reorder, email |
+| `/admin/nominees` | admin | Nominees grouped by category — voting links, publish, reorder, email |
 | `/admin/nominees/[id]` | admin | Edit the public profile |
-| `/admin/categories` | admin | Categories + the shareable voting link for each |
-| `/vote/[slug]` | form | Public category page — the shareable link |
+| `/admin/categories` | admin | Categories + each one's directory link |
+| `/nominee/[code]` | form | A nominee's personal voting page — the link she shares |
+| `/vote/[slug]` | form | Category directory — lists nominees, links to their pages |
 
 `npm run dev` serves both surfaces on one port, which is how local development
 normally runs. To drive the two-domain split locally instead:

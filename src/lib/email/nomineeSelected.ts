@@ -7,9 +7,10 @@ import type { Email } from "@/lib/email/resend";
  * an applicant is promoted and her card goes live on the category page.
  *
  * Written to state only what is certainly true at send time: she is a nominee,
- * this is her category, and this is the page her card is on. It promises no
- * voting dates, because the voting window is set later in the dashboard
- * (section 10) and an email cannot be unsent once a date in it changes.
+ * this is her category, and this is her personal voting link -- the one she
+ * shares so her customers can vote for her. It promises no voting dates,
+ * because voting is switched by hand in the dashboard and an email cannot be
+ * unsent once a date in it changes.
  *
  * Inline styles and a table shell, because that is what email clients render
  * predictably -- Gmail strips <style> blocks and Outlook ignores flexbox.
@@ -22,6 +23,10 @@ import type { Email } from "@/lib/email/resend";
 const CATEGORY_NOTICE =
   "Categories may change. Final categories will be announced during voting.";
 
+/** Why the link matters. Shared by both halves for the same reason. */
+const SHARE_LINE =
+  "Share your link with your customers, friends and community. Every vote cast on it counts for you.";
+
 export function nomineeSelectedEmail(params: {
   to: string;
   name: string;
@@ -31,11 +36,14 @@ export function nomineeSelectedEmail(params: {
    *  column existed -- in which case the email simply does not mention one
    *  rather than showing a blank field. */
   code: string | null;
-  /** Absolute URL of her category's voting page, or null when the public
-   *  origin is not configured (local development). */
+  /** Absolute URL of her personal voting page, or null when the public origin
+   *  is not configured (local development). */
   voteUrl: string | null;
+  /** False only for a row with no nominee number, where voteUrl is her
+   *  category's page instead -- so the copy never calls that link "yours". */
+  personalLink?: boolean;
 }): Email {
-  const { to, name, businessName, categoryName, code, voteUrl } = params;
+  const { to, name, businessName, categoryName, code, voteUrl, personalLink = true } = params;
 
   const firstName = name.trim().split(/\s+/)[0] || name.trim();
   const subject = `You're a nominee — AWE Awards 2026 (${categoryName})`;
@@ -50,11 +58,12 @@ export function nomineeSelectedEmail(params: {
     `Business: ${businessName}`,
     "",
     ...(code ? [`Please quote your Nominee ID when you contact us.`, ""] : []),
-    voteUrl
-      ? `Your nominee card is now on your category's page: ${voteUrl}`
-      : `Your nominee card is now on your category's page.`,
-    "",
-    "Public voting opens shortly. We will let you know the moment it does, so you can share your category page with your customers and community.",
+    ...(voteUrl
+      ? personalLink
+        ? [`Your personal voting link: ${voteUrl}`, ""]
+        : [`Your nominee card is on your category's page: ${voteUrl}`, ""]
+      : []),
+    SHARE_LINE,
     "",
     CATEGORY_NOTICE,
     "",
@@ -88,8 +97,8 @@ export function nomineeSelectedEmail(params: {
                 Hi ${escapeHtml(firstName)},
               </p>
               <p style="margin:0 0 18px;font:400 15px/1.65 Arial,Helvetica,sans-serif;color:#2a2a2a;">
-                Your entry has been selected as a nominee in the AWE Awards 2026. Your card is now
-                live on your category&rsquo;s page.
+                Your entry has been selected as a nominee in the AWE Awards 2026, and your own
+                voting page is now live.
               </p>
 
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4ecf8;border-radius:10px;">
@@ -125,8 +134,11 @@ export function nomineeSelectedEmail(params: {
               <a href="${escapeAttr(voteUrl)}"
                  style="display:inline-block;background:#c2006e;color:#ffffff;text-decoration:none;
                         font:700 15px/1 Arial,Helvetica,sans-serif;padding:14px 30px;border-radius:8px;">
-                See your category page
+                ${personalLink ? "Open your voting page" : "See your category page"}
               </a>
+              <p style="margin:12px 0 0;font:400 12px/1.6 Arial,Helvetica,sans-serif;color:#6b6472;word-break:break-all;">
+                ${escapeHtml(voteUrl)}
+              </p>
             </td>
           </tr>`
               : ""
@@ -135,8 +147,7 @@ export function nomineeSelectedEmail(params: {
           <tr>
             <td style="padding:20px 28px 26px;">
               <p style="margin:0 0 14px;font:400 14px/1.65 Arial,Helvetica,sans-serif;color:#2a2a2a;">
-                Public voting opens shortly. We&rsquo;ll let you know the moment it does, so you can
-                share your category page with your customers and community.
+                ${escapeHtml(SHARE_LINE)}
               </p>
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fdf6ec;border-left:3px solid #c68f45;border-radius:6px;">
                 <tr>

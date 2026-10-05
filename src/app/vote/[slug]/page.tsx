@@ -4,19 +4,18 @@ import { notFound } from "next/navigation";
 
 import { DarkShell } from "@/components/DarkShell";
 import { NomineeCard } from "@/components/vote/NomineeCard";
-import { VoteForm } from "@/components/vote/VoteForm";
+import { VotingNotice } from "@/components/vote/VotingNotice";
 import { publicCategoryPage, signNomineePhotos } from "@/lib/nominees";
-import { turnstileSiteKey } from "@/lib/turnstile";
-import {
-  categoryVotingState,
-  emailVerificationRequired,
-  getPublicVotingSettings,
-  type CategoryVotingState,
-} from "@/lib/voting";
+import { categoryVotingState, getPublicVotingSettings } from "@/lib/voting";
 
 /**
- * The category voting page (Final Plan section 6) -- one shareable link per
- * category, showing every nominee in it as a card.
+ * A category's directory page -- every nominee in it as a card, each with a
+ * button through to her personal voting page (/nominee/AWE2026-007).
+ *
+ * Voting used to happen here, with one link per category. It moved to one link
+ * per nominee, which she shares with her own customers; this page stays so the
+ * category links already sent out keep leading to the nominees rather than to
+ * a dead end. No vote is cast on this page.
  *
  * Rendered per request rather than cached: the nominee list changes as the
  * admin promotes people, and the photos are short-lived signed URLs from a
@@ -40,10 +39,9 @@ export async function generateMetadata({
 
 export default async function CategoryVotePage({ params }: PageProps<"/vote/[slug]">) {
   const { slug } = await params;
-  const [{ category, nominees }, settings, requireCode] = await Promise.all([
+  const [{ category, nominees }, settings] = await Promise.all([
     publicCategoryPage(slug),
     getPublicVotingSettings(),
-    emailVerificationRequired(),
   ]);
 
   if (!category) notFound();
@@ -75,31 +73,17 @@ export default async function CategoryVotePage({ params }: PageProps<"/vote/[slu
           </p>
         </div>
 
-        {/* The schedule is real -- an admin sets it in Voting Control -- but
-          * the ballot is not built yet. Both facts get said, because a
-          * disabled checkbox on its own would leave a voter unsure whether
-          * their tap counted. */}
-        <VotingNotice state={state} />
+        <VotingNotice state={state} page="directory" />
 
-        {/* Open and populated: the real ballot. Anything else shows the same
-          * cards inert, so the page a voter will use is the page she is
-          * already looking at. */}
-        {state === "open" && nominees.length > 0 ? (
-          <VoteForm
-            slug={slug}
-            categoryName={category.name}
-            nominees={nominees}
-            photoUrls={photoUrls}
-            turnstileSiteKey={turnstileSiteKey()}
-            requireCode={requireCode}
-          />
-        ) : nominees.length > 0 ? (
+        {nominees.length > 0 ? (
           <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {nominees.map((nominee) => (
               <NomineeCard
                 key={nominee.id}
                 nominee={nominee}
                 photoUrl={nominee.photo_path ? (photoUrls[nominee.photo_path] ?? null) : null}
+                href={nominee.code ? `/nominee/${nominee.code}` : null}
+                votingOpen={state === "open"}
               />
             ))}
           </ul>
@@ -120,64 +104,5 @@ export default async function CategoryVotePage({ params }: PageProps<"/vote/[slu
         </p>
       </main>
     </DarkShell>
-  );
-}
-
-/**
- * What a visitor is told about voting, from the switches the dashboard sets
- * (Final Plan section 10, manual variant).
- *
- * Every branch is careful never to imply a vote can be cast, because none can
- * yet -- the ballot arrives with the voter portal. The state is real, so it is
- * worth showing; the ability to vote is not, so it is never claimed.
- */
-function VotingNotice({ state }: { state: CategoryVotingState }) {
-  const copy: Record<CategoryVotingState, { icon: string; title: string; body: string }> = {
-    not_started: {
-      icon: "\u{1F5F3}\u{FE0F}",
-      title: "Voting has not opened yet.",
-      body: "These are the nominees as they will appear. Save this page \u2014 when voting opens you will pick everyone you want to vote for here and submit once.",
-    },
-    open: {
-      icon: "\u{1F5F3}\u{FE0F}",
-      title: "Voting is open.",
-      body: "Tick everyone you want to vote for, fill your details once, and submit. One vote per nominee — you can back several in this category.",
-    },
-    paused: {
-      icon: "\u{23F8}\u{FE0F}",
-      title: "Voting is paused.",
-      body: "The organisers have paused voting for the moment. Check back shortly \u2014 the nominees below are unchanged.",
-    },
-    category_paused: {
-      icon: "\u{23F8}\u{FE0F}",
-      title: "Voting is paused for this category.",
-      body: "Other categories are still running. Check back shortly \u2014 the nominees below are unchanged.",
-    },
-    stopped: {
-      icon: "\u{1F512}",
-      title: "Voting has closed.",
-      body: "Winners are announced by the organisers once the results are confirmed.",
-    },
-    hidden: {
-      icon: "\u{1F512}",
-      title: "This page is closed.",
-      body: "Voting is not running for this category.",
-    },
-  };
-
-  const { icon, title, body } = copy[state];
-
-  return (
-    <div
-      className="mx-auto mt-6 flex max-w-lg items-start gap-3 rounded-xl border border-gold/30
-                 bg-gold/10 px-4 py-3.5 text-left"
-    >
-      <span aria-hidden="true" className="mt-0.5 text-base">
-        {icon}
-      </span>
-      <p className="text-[13px] leading-relaxed text-ink">
-        <strong className="font-semibold text-heading">{title}</strong> {body}
-      </p>
-    </div>
   );
 }

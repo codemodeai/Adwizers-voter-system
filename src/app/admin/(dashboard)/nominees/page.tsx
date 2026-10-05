@@ -2,12 +2,19 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { ApplicantAvatar } from "@/components/admin/ApplicantAvatar";
+import { NomineeLinkTools } from "@/components/admin/NomineeLinkTools";
 import { NotifyBadge } from "@/components/admin/NotifyBadge";
 import { PublishToggle } from "@/components/admin/PublishToggle";
 import { StatTile } from "@/components/admin/StatTile";
 import { ReorderButtons } from "@/components/admin/ReorderButtons";
 import { resendConfigured, usingTestSender } from "@/lib/email/resend";
-import { listCategoriesWithNominees, nomineeCounts, signNomineePhotos } from "@/lib/nominees";
+import {
+  listCategoriesWithNominees,
+  nomineeCounts,
+  nomineeVoteUrl,
+  signNomineePhotos,
+} from "@/lib/nominees";
+import { FORM_ORIGIN } from "@/lib/target";
 import { notifyState } from "@/lib/types";
 
 export const metadata: Metadata = {
@@ -18,10 +25,10 @@ export const metadata: Metadata = {
 /**
  * Nominees (Final Plan section 5), grouped by category rather than listed flat.
  *
- * A nominee has no link of her own -- she is a card on her category's page --
- * so the category is the unit that matters, and grouping is what makes "who is
- * on this page, in what order" answerable at a glance. The flat list that would
- * have been easier to build answers a question nobody has.
+ * This is the link screen: every nominee has her own voting link
+ * (/nominee/AWE2026-007), and each row carries it with Copy and WhatsApp
+ * buttons, so sending a nominee her link is one tap from here. Grouping by
+ * category keeps "who is competing with whom" answerable at a glance.
  */
 export default async function NomineesPage() {
   const [groups, counts] = await Promise.all([listCategoriesWithNominees(), nomineeCounts()]);
@@ -36,8 +43,9 @@ export default async function NomineesPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-purple-royal">Nominees</h1>
         <p className="mt-1 text-sm text-ink-muted">
-          Applicants promoted to nominee. Each one is a card on her category&rsquo;s voting page —
-          edit the public copy here without touching her original entry.
+          Applicants promoted to nominee. Each one has her own voting link to share with her
+          customers — send it from here. Edit her public profile without touching her original
+          entry.
         </p>
       </div>
 
@@ -68,6 +76,16 @@ export default async function NomineesPage() {
         </Notice>
       )}
 
+      {/* Without FORM_ORIGIN the links are relative paths, which are useless
+        * pasted into WhatsApp from the dashboard's own domain. */}
+      {!FORM_ORIGIN && counts.total > 0 && (
+        <Notice tone="warn">
+          <strong className="font-semibold">Links are showing as paths, not full URLs.</strong> Set{" "}
+          <code className="font-mono">FORM_ORIGIN</code> on this deployment so the copied link opens
+          for anyone you send it to.
+        </Notice>
+      )}
+
       {counts.failed > 0 && (
         <Notice tone="error">
           {counts.failed} nominee{counts.failed === 1 ? "" : "s"} could not be emailed. Each is
@@ -86,7 +104,7 @@ export default async function NomineesPage() {
             >
               Applicants
             </Link>
-            , then press Promote. Her card appears here and on her category&rsquo;s voting page.
+            , then press Promote. She appears here with her own voting link.
           </p>
         </div>
       )}
@@ -107,7 +125,7 @@ export default async function NomineesPage() {
               href="/admin/categories"
               className="text-[13px] font-semibold text-magenta-royal hover:underline"
             >
-              Category &amp; link
+              Category
             </Link>
           </header>
 
@@ -157,6 +175,19 @@ export default async function NomineesPage() {
                     </p>
                   )}
                 </div>
+
+                {nominee.code && (
+                  <div className="w-full sm:w-auto sm:max-w-[19rem] sm:flex-1">
+                    <NomineeLinkTools
+                      url={nomineeVoteUrl(nominee.code)}
+                      code={nominee.code}
+                      name={nominee.display_name}
+                      categoryName={group.name}
+                      phone={nominee.applicants?.whatsapp_number ?? null}
+                      live={nominee.is_published && group.is_active}
+                    />
+                  </div>
+                )}
 
                 <PublishToggle id={nominee.id} published={nominee.is_published} />
 

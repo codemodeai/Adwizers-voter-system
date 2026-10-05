@@ -6,7 +6,7 @@ import {
   CategoryVotingToggle,
 } from "@/components/admin/CategoryVotingToggle";
 import { VotingSwitch } from "@/components/admin/VotingSwitch";
-import { categoryVoteUrl, listCategoriesWithNominees } from "@/lib/nominees";
+import { listCategoriesWithNominees } from "@/lib/nominees";
 import {
   CATEGORY_STATE_LABEL,
   VOTING_STATUS_LABEL,
@@ -91,7 +91,7 @@ export default async function VotingPage() {
 
         <p className="mt-1.5 text-[13px] leading-relaxed opacity-90">
           {status === "not_started" &&
-            "Voting has never been opened. Every category page tells visitors voting has not opened yet."}
+            "Voting has never been opened. Every nominee's page tells visitors voting has not opened yet."}
           {status === "open" && (
             <>
               Votes are being accepted
@@ -102,9 +102,9 @@ export default async function VotingPage() {
             </>
           )}
           {status === "paused" &&
-            "Paused everywhere. The category pages stay up with their nominee cards; no votes are accepted until you resume."}
+            "Paused everywhere. Nominee pages stay up; no votes are accepted until you resume."}
           {status === "stopped" &&
-            "Voting is closed. Every category page says so. Reopening is possible but the pages have already told visitors it ended."}
+            "Voting is closed. Every nominee's page says so. Reopening is possible but the pages have already told visitors it ended."}
         </p>
 
         <div className="mt-4">
@@ -141,12 +141,13 @@ export default async function VotingPage() {
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-purple-royal">{group.name}</p>
-                  <p className="mt-0.5 truncate font-mono text-[12px] text-ink-muted">
-                    {categoryVoteUrl(group.slug)}
+                  <p className="mt-0.5 truncate text-[12px] text-ink-muted">
+                    {group.publishedCount} nominee link{group.publishedCount === 1 ? "" : "s"} —
+                    pausing here pauses all of them
                   </p>
                   {noNominees && (
                     <p className="mt-0.5 text-[12px] font-medium text-magenta-dark">
-                      No nominees — this page has nothing to vote for
+                      No live nominees in this category
                     </p>
                   )}
                 </div>
@@ -194,8 +195,8 @@ export default async function VotingPage() {
         * code is a setting now, and an admin opening voting should know which
         * defences are standing without reading the code. */}
       <div className="rounded-xl border border-gold-champagne/30 bg-gold-soft px-4 py-3 text-[13px] leading-relaxed text-gold-champagne">
-        <strong className="font-semibold">What &ldquo;open&rdquo; turns on.</strong> A voter picks
-        her nominees, fills her details once and submits. Each nominee can be voted for once per
+        <strong className="font-semibold">What &ldquo;open&rdquo; turns on.</strong> A voter opens a
+        nominee&rsquo;s personal link, fills in her details and submits. Each nominee can be voted for once per
         mobile number, once per email address and once per device, on top of Turnstile and the rate
         limits. The emailed 6-digit code is a separate switch, currently{" "}
         <strong className="font-semibold">

@@ -18,9 +18,10 @@ function revalidateNominee(id: string, slug?: string | null) {
 /**
  * Publish / unpublish (Final Plan section 5).
  *
- * Unpublishing takes the card off the category page without deleting anything
- * -- the profile, the notification trail, and the link back to her original
- * entry all survive, so it can be reversed with one click.
+ * Unpublishing closes her voting link and takes her off the category directory
+ * without deleting anything -- the profile, the notification trail, and the
+ * link back to her original entry all survive, so it can be reversed with one
+ * click.
  */
 export async function setNomineePublished(
   id: string,

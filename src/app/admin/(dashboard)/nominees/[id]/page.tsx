@@ -3,10 +3,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { NomineeEditor } from "@/components/admin/NomineeEditor";
+import { NomineeLinkTools } from "@/components/admin/NomineeLinkTools";
 import { NotifyBadge } from "@/components/admin/NotifyBadge";
 import { PublishToggle } from "@/components/admin/PublishToggle";
 import { listCategories } from "@/lib/applicants";
-import { categoryVoteUrl, getNominee, signNomineePhotos } from "@/lib/nominees";
+import { categoryVoteUrl, getNominee, nomineeVoteUrl, signNomineePhotos } from "@/lib/nominees";
 import { signOriginal } from "@/lib/photoStorage";
 import { notifyState } from "@/lib/types";
 
@@ -67,28 +68,50 @@ export default async function NomineePage({ params }: PageProps<"/admin/nominees
         </div>
       </div>
 
-      {/* The two things this screen is not: it is not her entry, and it is not
-        * her own page. Both get a link rather than an explanation. */}
-      <div className="flex flex-wrap gap-x-5 gap-y-2 rounded-xl border border-line bg-surface px-4 py-3 text-[13px]">
-        <Link
-          href={`/admin/applicants/${nominee.applicant_id}`}
-          className="font-semibold text-magenta-royal hover:underline"
-        >
-          Original entry
-        </Link>
-        {nominee.categories && (
-          <a
-            href={categoryVoteUrl(nominee.categories.slug)}
-            target="_blank"
-            rel="noreferrer"
+      {/* Her personal voting link first -- it is the thing most often needed
+        * from this screen -- then the way back to her original entry. */}
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3 rounded-xl border border-line bg-surface px-4 py-3.5">
+        <div className="min-w-0 flex-1">
+          <p className="text-[12px] font-semibold uppercase tracking-wide text-ink-muted">
+            Her voting link
+          </p>
+          {nominee.code ? (
+            <div className="mt-1.5">
+              <NomineeLinkTools
+                url={nomineeVoteUrl(nominee.code)}
+                code={nominee.code}
+                name={nominee.display_name}
+                categoryName={nominee.categories?.name ?? null}
+                phone={nominee.applicants?.whatsapp_number ?? null}
+                live={nominee.is_published && nominee.categories?.is_active !== false}
+                size="md"
+              />
+            </div>
+          ) : (
+            <p className="mt-1 text-[13px] text-ink-muted">
+              No nominee number yet, so there is no link to share.
+            </p>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-1.5 text-[13px]">
+          <Link
+            href={`/admin/applicants/${nominee.applicant_id}`}
             className="font-semibold text-magenta-royal hover:underline"
           >
-            Her category page ↗
-          </a>
-        )}
-        <span className="text-ink-muted">
-          Nominees have no link of their own — she appears as a card on that page.
-        </span>
+            Original entry
+          </Link>
+          {nominee.categories && (
+            <a
+              href={categoryVoteUrl(nominee.categories.slug)}
+              target="_blank"
+              rel="noreferrer"
+              className="font-semibold text-magenta-royal hover:underline"
+            >
+              Category directory ↗
+            </a>
+          )}
+        </div>
       </div>
 
       <NomineeEditor
