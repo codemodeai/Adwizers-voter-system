@@ -23,6 +23,10 @@ function int(formData: FormData, key: string): number | null {
  * deliberate -- this validation produces a readable message, and the constraint
  * makes it true even if something else ever writes the row.
  *
+ * The emailed-code settings (`require_email_verification`,
+ * `verify_session_minutes`) are no longer written either: the feature was
+ * removed at the client's request.
+ *
  * `max_selections_per_submit` is deliberately not written. It capped how many
  * nominees one category-page submission could include; every vote is now cast
  * from a single nominee's page, so the field is gone from the form and the
@@ -36,15 +40,10 @@ export async function updateVotingRules(
 
   const perIp = int(formData, "rate_limit_per_ip_per_minute");
   const perDevice = int(formData, "rate_limit_per_device_per_hour");
-  const session = int(formData, "verify_session_minutes");
-  const requireVerification = formData.get("require_email_verification") === "on";
 
   if (!perIp || perIp < 1) return { status: "error", message: "Votes per IP must be at least 1." };
   if (!perDevice || perDevice < 1) {
     return { status: "error", message: "Votes per device must be at least 1." };
-  }
-  if (!session || session < 5 || session > 240) {
-    return { status: "error", message: "Verification window must be between 5 and 240 minutes." };
   }
 
   const { error } = await supabase
@@ -52,8 +51,6 @@ export async function updateVotingRules(
     .update({
       rate_limit_per_ip_per_minute: perIp,
       rate_limit_per_device_per_hour: perDevice,
-      require_email_verification: requireVerification,
-      verify_session_minutes: session,
       updated_by: user.id,
     })
     .eq("id", 1);

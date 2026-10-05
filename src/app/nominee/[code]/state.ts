@@ -3,17 +3,15 @@
 export type VoteOutcome = {
   nomineeId: string;
   name: string;
-  /** "recorded" carries a receipt; "already" means one of the three signals
-   *  matched an existing vote for this nominee. */
+  /** "recorded" carries a receipt; "already" means this mobile number or
+   *  email already has a vote for this nominee. */
   status: "recorded" | "already" | "failed";
   voteRef?: string;
 };
 
 export type VoteState =
   | { status: "idle" }
-  /** The code has been emailed; the form is waiting for it. */
-  | { status: "code_sent"; email: string; message?: string }
   | { status: "done"; outcomes: VoteOutcome[] }
-  | { status: "error"; message: string; field?: "selection" | "details" | "code" };
+  | { status: "error"; message: string; field?: "selection" | "details" };
 
 export const EMPTY_VOTE_STATE: VoteState = { status: "idle" };

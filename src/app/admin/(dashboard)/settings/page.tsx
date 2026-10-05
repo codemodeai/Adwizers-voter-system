@@ -3,7 +3,6 @@ import Link from "next/link";
 
 import { VotingRulesForm } from "@/components/admin/VotingRulesForm";
 import { resendConfigured, usingTestSender } from "@/lib/email/resend";
-import { sesConfigured, sesRegion } from "@/lib/email/ses";
 import { turnstileConfigured } from "@/lib/turnstile";
 import { ADMIN_ORIGIN, FORM_ORIGIN } from "@/lib/target";
 import { getVotingRules, getVotingSettings, VOTING_STATUS_LABEL } from "@/lib/voting";
@@ -126,28 +125,6 @@ export default async function SettingsPage() {
             ok={Boolean(ADMIN_ORIGIN)}
             note={ADMIN_ORIGIN ?? undefined}
           />
-          {/* Only a problem while the ballot actually sends codes. With
-            * verification off this is dormant configuration, not a fault, and
-            * a red badge here would send someone chasing a blocker that is no
-            * longer in the way. */}
-          <Row
-            label="Voter codes (Amazon SES)"
-            value={
-              !rules.require_email_verification
-                ? "Not in use"
-                : sesConfigured()
-                  ? `SES · ${sesRegion()}`
-                  : "Falling back to Resend"
-            }
-            ok={!rules.require_email_verification || sesConfigured()}
-            note={
-              !rules.require_email_verification
-                ? "Email verification is switched off, so the ballot sends no codes. Votes are held to one per nominee by mobile number and email address instead. Turn it back on in the rules above once SES is out of the sandbox."
-                : sesConfigured()
-                  ? "Verification codes send through SES."
-                  : "SES_REGION, SES_ACCESS_KEY_ID, SES_SECRET_ACCESS_KEY and SES_FROM are unset on the form deployment, so codes use Resend — capped at 100 a day on the free tier."
-            }
-          />
           <Row
             label="Captcha (Cloudflare Turnstile)"
             value={turnstileConfigured() ? "Protecting votes" : "Not configured"}
@@ -198,8 +175,8 @@ export default async function SettingsPage() {
       </section>
 
       <p className="text-[12px] leading-relaxed text-ink-muted">
-        The rate limits and the verification switch are stored in the database and read by the
-        ballot on every submission — they are live settings, not documentation.
+        The rate limits are stored in the database and read by the ballot on every submission —
+        they are live settings, not documentation.
       </p>
     </div>
   );

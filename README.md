@@ -12,7 +12,7 @@ Built to the spec in [`docs/AWE_Awards_2026_Final_Plan.pdf`](docs/AWE_Awards_202
 | --- | --- | --- |
 | **1** | Registration form (Form 1) + Applicants module | ✅ Built |
 | **2** | Nominees — promote, public profile editing, Resend notification | ✅ Built |
-| **3** | Voter portal — personal nominee links, Turnstile, optional SES codes, vote rules | ✅ Built |
+| **3** | Voter portal — personal nominee links, Turnstile, vote rules | ✅ Built |
 | **4** | Voting control, analytics, winner reveal, export, backup | ✅ Built |
 
 ### Voting links
@@ -39,7 +39,7 @@ can each vote. Mobile numbers are checked to be a real 10-digit Indian mobile
 (or a `+`country-code number) and stored in one standard form
 (`+919876543210`), so the same number typed with spaces, a 0 or +91 is still
 one voter — see `src/lib/phone.ts`. Neither the mobile nor the email is
-verified; the emailed code is an optional setting, off by default.
+verified: there is no emailed or SMS code, and the vote is recorded on submit.
 
 ---
 
