@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { generateCode, sendVerificationCode } from "@/lib/email/verificationCode";
 import { checkRateLimits, logAttempt } from "@/lib/rateLimit";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { normaliseNomineeCode, publicNomineePage } from "@/lib/nominees";
 import { createPublicClient } from "@/lib/supabase/public";
 import { verifyTurnstile } from "@/lib/turnstile";
 import {
@@ -37,6 +38,13 @@ import type { VoteOutcome, VoteState } from "./state";
  * did the work: the three unique indexes on the votes table (mobile, email,
  * device), plus the rate limits above them. The code proved the address was
  * hers; nothing else about the duplicate rules depended on it.
+ *
+ * Votes are cast from a nominee's personal page (/nominee/AWE2026-007), which
+ * posts her number. The category and nominee are resolved from that number on
+ * the server -- see `readBallot` -- and then run through exactly the same gate
+ * and the same per-nominee insert as before. The older shape, a category slug
+ * plus a list of nominee ids, is still accepted so a category page that was
+ * already open in someone's browser when this shipped can finish its submit.
  */
 
 const MOBILE = /^[+]?[\d\s-]{7,20}$/;
@@ -69,8 +77,33 @@ function parse(formData: FormData): Parsed {
   };
 }
 
+/**
+ * Which category and nominees this submission is for.
+ *
+ * A personal page sends only the nominee's number, and everything else is
+ * looked up here: her id, and her category's slug for the gate. Nothing the
+ * browser says about either is trusted. A number that does not resolve to a
+ * live nominee leaves the slug empty, which the gate refuses as a closed page.
+ */
+async function readBallot(formData: FormData): Promise<{ slug: string; input: Parsed }> {
+  const input = parse(formData);
+  const rawCode = formData.get("nominee_code");
+
+  if (typeof rawCode !== "string") {
+    return { slug: String(formData.get("slug") ?? ""), input };
+  }
+
+  const code = normaliseNomineeCode(rawCode);
+  const page = code ? await publicNomineePage(code) : null;
+
+  return {
+    slug: page?.category.slug ?? "",
+    input: { ...input, nomineeIds: page ? [page.nominee.id] : [] },
+  };
+}
+
 function validate(input: Parsed): string | null {
-  if (input.nomineeIds.length === 0) return "Choose at least one nominee to vote for.";
+  if (input.nomineeIds.length === 0) return "This nominee's voting page is closed.";
   if (!input.name) return "Please enter your name.";
   if (!input.mobile || !MOBILE.test(input.mobile)) return "Please enter a valid mobile number.";
   if (!input.email || !EMAIL.test(input.email)) return "Please enter a valid email address.";
@@ -294,8 +327,7 @@ async function castVotes(params: {
  * (if this visit is already verified) or email a code.
  */
 export async function startVote(_prev: VoteState, formData: FormData): Promise<VoteState> {
-  const slug = String(formData.get("slug") ?? "");
-  const input = parse(formData);
+  const { slug, input } = await readBallot(formData);
 
   const checked = await gate(slug, input);
   if (!checked.ok) {
@@ -363,8 +395,7 @@ export async function startVote(_prev: VoteState, formData: FormData): Promise<V
  * before it, or that voting is still open since it did.
  */
 export async function submitWithCode(_prev: VoteState, formData: FormData): Promise<VoteState> {
-  const slug = String(formData.get("slug") ?? "");
-  const input = parse(formData);
+  const { slug, input } = await readBallot(formData);
   const code = String(formData.get("code") ?? "").trim();
 
   if (!/^\d{6}$/.test(code)) {

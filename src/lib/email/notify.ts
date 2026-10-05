@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { nomineeSelectedEmail } from "@/lib/email/nomineeSelected";
 import { sendEmail } from "@/lib/email/resend";
-import { absoluteCategoryVoteUrl } from "@/lib/nominees";
+import { absoluteCategoryVoteUrl, absoluteNomineeVoteUrl } from "@/lib/nominees";
 
 export type NotifyParams = {
   nomineeId: string;
@@ -50,7 +50,12 @@ export async function notifyNominee(
       businessName: params.businessName,
       categoryName: params.categoryName,
       code: params.code,
-      voteUrl: absoluteCategoryVoteUrl(params.categorySlug),
+      // Her personal link. The category page is only a fallback for a row with
+      // no number, and the email words itself to match which one it got.
+      voteUrl: params.code
+        ? absoluteNomineeVoteUrl(params.code)
+        : absoluteCategoryVoteUrl(params.categorySlug),
+      personalLink: Boolean(params.code),
     }),
   );
 

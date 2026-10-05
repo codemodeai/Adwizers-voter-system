@@ -6,22 +6,65 @@ import { createClient } from "@/lib/supabase/server";
 import { formUrl } from "@/lib/target";
 import type { Category, NomineeWithCategory } from "@/lib/types";
 
-const SELECT = "*, categories(id, name, slug)";
+// The applicant's WhatsApp number rides along so the dashboard can send a
+// nominee her link straight into her chat. Admin-only: this select runs under
+// the admin's session, where RLS lets it read applicants.
+const SELECT = "*, categories(id, name, slug, is_active), applicants(whatsapp_number)";
 
 /**
- * The shareable link for a category (Final Plan sections 5 and 6): one link per
- * category, never one per nominee. Absolute on the form domain when it is
- * configured, so the value in the dashboard is copy-pasteable into WhatsApp.
+ * A category's page. Since voting moved to personal links this is a directory
+ * -- every nominee in the category, each with a button through to her own page
+ * -- kept so links already sent out still lead somewhere useful.
  */
 export function categoryVoteUrl(slug: string): string {
   return formUrl(`/vote/${slug}`);
 }
 
-/** Absolute vote URL, or null when no public origin is configured -- which is
- *  local development, where a relative path in an email would be useless. */
+/** Absolute category URL, or null when no public origin is configured. Only
+ *  used now as the email's fallback for a nominee with no number. */
 export function absoluteCategoryVoteUrl(slug: string): string | null {
   const url = categoryVoteUrl(slug);
   return url.startsWith("http") ? url : null;
+}
+
+/**
+ * A nominee's own voting link: the one she shares with her customers and
+ * community, and the only page a vote is cast from.
+ *
+ * Keyed on her nominee number (AWE2026-007) rather than a name-based slug. The
+ * number already exists for every nominee, is unique, is assigned once by the
+ * database and never changes -- so a link printed on a poster cannot be broken
+ * by an admin later correcting the spelling of her name.
+ */
+export function nomineeVoteUrl(code: string): string {
+  return formUrl(`/nominee/${code}`);
+}
+
+/** Absolute personal link, or null when no public origin is configured --
+ *  which is local development, where a relative path in an email is useless. */
+export function absoluteNomineeVoteUrl(code: string): string | null {
+  const url = nomineeVoteUrl(code);
+  return url.startsWith("http") ? url : null;
+}
+
+/** The shape the database hands out (AWE2026-001), checked before any query so
+ *  a junk path segment never reaches the database. */
+const NOMINEE_CODE = /^AWE\d{4}-\d{1,6}$/;
+
+/**
+ * A nominee number from a URL, tidied up: people retype links from posters, so
+ * `awe2026-007` and a trailing space are both the same nominee. Null when it
+ * cannot be a nominee number at all.
+ */
+export function normaliseNomineeCode(raw: string): string | null {
+  let value = raw;
+  try {
+    value = decodeURIComponent(raw);
+  } catch {
+    // A malformed escape is simply not a code.
+  }
+  const code = value.trim().toUpperCase();
+  return NOMINEE_CODE.test(code) ? code : null;
 }
 
 export type NomineeQuery = {
@@ -144,6 +187,9 @@ export type PublicNominee = {
   social_whatsapp: string | null;
   sort_order: number;
   created_at: string;
+  /** Her nominee number, which is also her personal link. Null only for a row
+   *  that predates the column. */
+  code: string | null;
 };
 
 /**
@@ -180,6 +226,8 @@ export async function publicCategoryPage(slug: string): Promise<{
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: true });
 
+  const nominees = (data ?? []) as Omit<PublicNominee, "code">[];
+
   return {
     category: {
       id: category.id,
@@ -187,7 +235,91 @@ export async function publicCategoryPage(slug: string): Promise<{
       slug: category.slug,
       voting_paused: category.voting_paused ?? false,
     },
-    nominees: (data ?? []) as PublicNominee[],
+    nominees: await withCodes(nominees),
+  };
+}
+
+/**
+ * Attaches each nominee's number, so a directory card can link to her page.
+ *
+ * `anon` has no grant on the code column, so it is read here with the service
+ * role -- but only for the ids the anon read above already returned. The rows
+ * a visitor sees are still decided by RLS; this only adds one column to them.
+ */
+async function withCodes(nominees: Omit<PublicNominee, "code">[]): Promise<PublicNominee[]> {
+  if (nominees.length === 0) return [];
+
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("nominees")
+    .select("id, code")
+    .in(
+      "id",
+      nominees.map((n) => n.id),
+    );
+
+  const codes = new Map(
+    ((data ?? []) as { id: string; code: string | null }[]).map((row) => [row.id, row.code]),
+  );
+
+  return nominees.map((nominee) => ({ ...nominee, code: codes.get(nominee.id) ?? null }));
+}
+
+export type PublicNomineeCategory = Pick<Category, "id" | "name" | "slug"> & {
+  voting_paused: boolean;
+};
+
+/**
+ * A nominee's personal voting page, by her number.
+ *
+ * Read with the service role, because the number is not a column `anon` may
+ * select. That makes this function responsible for what RLS would otherwise
+ * have enforced, so it applies the same rule as the `nominees_public_select`
+ * policy -- published, in an active category -- and returns exactly the public
+ * card columns, never the notification trail or the applicant id.
+ *
+ * Null for anything a visitor must not see: no such number, a hidden profile,
+ * or a hidden category. All three look the same from outside, deliberately.
+ */
+export async function publicNomineePage(code: string): Promise<{
+  nominee: PublicNominee;
+  category: PublicNomineeCategory;
+} | null> {
+  const supabase = createAdminClient();
+
+  const { data } = await supabase
+    .from("nominees")
+    .select(`${PUBLIC_SELECT}, code`)
+    .eq("code", code)
+    .eq("is_published", true)
+    .maybeSingle();
+
+  if (!data) return null;
+  const nominee = data as PublicNominee;
+
+  // `*` for the same reason as the other category reads: it cannot fail
+  // against a database that predates the voting_paused column.
+  const { data: categoryRow } = await supabase
+    .from("categories")
+    .select("*")
+    .eq("id", nominee.category_id)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  const category = categoryRow as
+    | (Pick<Category, "id" | "name" | "slug"> & { voting_paused?: boolean })
+    | null;
+
+  if (!category) return null;
+
+  return {
+    nominee,
+    category: {
+      id: category.id,
+      name: category.name,
+      slug: category.slug,
+      voting_paused: category.voting_paused ?? false,
+    },
   };
 }
 

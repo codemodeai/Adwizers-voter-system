@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 const STEPS = [
   "Our team reviews your entry and may reach out on WhatsApp if anything is missing.",
   "Once your entry is confirmed, we will let you know about the nomination fee.",
-  "If you are selected as a nominee, you will get an email at the address you gave us, and your profile goes live on your category's voting page.",
+  "If you are selected as a nominee, you will get an email at the address you gave us, with your own voting link to share with your customers.",
 ];
 
 export default function ThankYouPage() {

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { CategoryCard } from "@/components/admin/CategoryCard";
 import { NewCategoryForm } from "@/components/admin/NewCategoryForm";
@@ -11,17 +12,12 @@ export const metadata: Metadata = {
 };
 
 /**
- * Categories (Final Plan section 5) -- and, in practice, the link screen.
+ * Categories (Final Plan section 5).
  *
- * Section 6 is emphatic that the shareable link is per category and never per
- * nominee, which makes this the page the client opens on the day: fourteen
- * links to copy, each showing who is on it.
- *
- * Each category is a full-width box holding its own nominee cards, because
- * that is the real structure: a nominee has no link of her own and exists only
- * as a card on her category's page (section 6). One box per shared link,
- * holding the cards that link leads to, means this screen previews the voting
- * page rather than merely describing it.
+ * Each category is a full-width box holding its own nominee cards. Votes are
+ * cast on each nominee's personal link, which lives on the Nominees screen;
+ * the category link here opens a directory of that category's nominees, kept
+ * so the category links already sent out still lead somewhere useful.
  */
 export default async function CategoriesPage() {
   const groups = await listCategoriesWithNominees();
@@ -39,8 +35,12 @@ export default async function CategoriesPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-purple-royal">Categories</h1>
           <p className="mt-1 max-w-2xl text-sm text-ink-muted">
-            Each category has one shareable voting link showing every nominee in it — this is the
-            link that gets sent out. Nominees never get a link of their own.
+            Voting happens on each nominee&rsquo;s own link — copy or send those from{" "}
+            <Link href="/admin/nominees" className="font-semibold text-magenta-royal hover:underline">
+              Nominees
+            </Link>
+            . A category&rsquo;s link opens a directory of its nominees, each with a button to her
+            voting page.
           </p>
           <p className="mt-2 text-[13px] text-ink-muted">
             <span className="font-semibold text-charcoal">{groups.length}</span> categories ·{" "}
@@ -81,6 +81,7 @@ export default async function CategoriesPage() {
               area_location: n.area_location,
               is_published: n.is_published,
               photo_path: n.photo_path,
+              code: n.code,
             }))}
             photoUrls={photoUrls}
             first={index === 0}

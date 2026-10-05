@@ -40,7 +40,7 @@ export function PublishToggle({
         type="button"
         onClick={toggle}
         disabled={pending}
-        title={published ? "Hide from the category page" : "Show on the category page"}
+        title={published ? "Hide her — her voting link stops opening" : "Make her live — her voting link opens again"}
         className={
           `inline-flex items-center gap-1.5 whitespace-nowrap rounded-md font-semibold ` +
           `ring-1 ring-inset transition-colors disabled:opacity-60 ${pad} ` +

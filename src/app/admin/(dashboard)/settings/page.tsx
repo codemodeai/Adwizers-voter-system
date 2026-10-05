@@ -117,7 +117,7 @@ export default async function SettingsPage() {
             ok={Boolean(FORM_ORIGIN)}
             note={
               FORM_ORIGIN ??
-              "FORM_ORIGIN is unset, so category links render as paths and are useless when shared."
+              "FORM_ORIGIN is unset, so nominee voting links render as paths and are useless when shared."
             }
           />
           <Row

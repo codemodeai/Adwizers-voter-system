@@ -27,7 +27,7 @@ const MOVES: Record<VotingStatus, Action[]> = {
       to: "open",
       label: "Start voting",
       tone: "primary",
-      confirm: "Open voting on every category page now?",
+      confirm: "Open voting on every nominee's page now?",
     },
   ],
   open: [
@@ -36,7 +36,7 @@ const MOVES: Record<VotingStatus, Action[]> = {
       to: "stopped",
       label: "Stop voting",
       tone: "danger",
-      confirm: "Stop voting for good? Every category page will say voting has closed.",
+      confirm: "Stop voting for good? Every nominee's page will say voting has closed.",
     },
   ],
   paused: [
@@ -45,7 +45,7 @@ const MOVES: Record<VotingStatus, Action[]> = {
       to: "stopped",
       label: "Stop voting",
       tone: "danger",
-      confirm: "Stop voting for good? Every category page will say voting has closed.",
+      confirm: "Stop voting for good? Every nominee's page will say voting has closed.",
     },
   ],
   stopped: [

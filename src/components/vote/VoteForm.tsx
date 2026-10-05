@@ -5,9 +5,7 @@ import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 
 import { startVote, submitWithCode } from "@/app/vote/[slug]/actions";
-import { EMPTY_VOTE_STATE, type VoteState } from "@/app/vote/[slug]/state";
-import { NomineeCard } from "@/components/vote/NomineeCard";
-import type { PublicNominee } from "@/lib/nominees";
+import { EMPTY_VOTE_STATE, type VoteOutcome, type VoteState } from "@/app/vote/[slug]/state";
 
 const DEVICE_KEY = "awe_device_id";
 
@@ -69,43 +67,34 @@ function Submit({ label, busy }: { label: string; busy: string }) {
 }
 
 /**
- * The ballot (Final Plan sections 6, 7, 8), in two steps.
+ * The ballot on a nominee's personal page (Final Plan sections 6, 7, 8).
  *
- * Step one is the nominees and nothing else; step two is the details, and then
- * the emailed code if the admin has switched verification on. Section 6
- * requires one submission covering every nominee checked, and that is preserved
- * -- the split is presentational, and the whole selection still travels in a
- * single submit.
+ * One nominee, so there is nothing to choose: her profile is already on screen
+ * above this, and the form is the voter's details and a submit -- then the
+ * emailed code, if the admin has switched verification on.
  *
- * Two steps rather than one long page because the two tasks want different
- * attention: choosing is browsing, comparing, reading bios; filling in details
- * is form-filling. On a phone the form was pushing the cards off-screen, so a
- * voter checking who she had picked had to scroll back past everything.
- *
- * The selection lives in this component across both steps and across the
- * verification round trip, so neither going back nor entering a code ever costs
- * a voter her choices.
+ * The details live in state rather than only in the inputs, because the code
+ * step unmounts the fields and still has to send them; entering a code must
+ * never cost a voter what she typed.
  */
 export function VoteForm({
-  slug,
+  nomineeCode,
+  nomineeName,
   categoryName,
-  nominees,
-  photoUrls,
   turnstileSiteKey,
   requireCode,
 }: {
-  slug: string;
+  /** Her number. The server resolves the nominee and her category from it, and
+   *  trusts nothing else the page could send about either. */
+  nomineeCode: string;
+  nomineeName: string;
   categoryName: string;
-  nominees: PublicNominee[];
-  photoUrls: Record<string, string>;
   turnstileSiteKey: string | null;
-  /** Whether submitting sends a code and waits for it, or records the votes
+  /** Whether submitting sends a code and waits for it, or records the vote
    *  there and then. Decided by the admin, read server-side -- so the button
    *  never promises an email that is not coming. */
   requireCode: boolean;
 }) {
-  const [step, setStep] = useState<"select" | "details">("select");
-  const [selected, setSelected] = useState<string[]>([]);
   const [details, setDetails] = useState({ name: "", mobile: "", email: "", location: "" });
 
   const [state, action] = useActionState<VoteState, FormData>(startVote, EMPTY_VOTE_STATE);
@@ -121,246 +110,120 @@ export function VoteForm({
   const active: VoteState = codeState.status !== "idle" ? codeState : state;
   const awaitingCode = active.status === "code_sent";
 
-  const chosen = nominees.filter((n) => selected.includes(n.id));
-
-  function toggle(id: string) {
-    setSelected((current) =>
-      current.includes(id) ? current.filter((v) => v !== id) : [...current, id],
-    );
-  }
-
   if (active.status === "done") {
     return (
-      <Receipt outcomes={active.outcomes} categoryName={categoryName} requireCode={requireCode} />
+      <Receipt
+        outcomes={active.outcomes}
+        nomineeName={nomineeName}
+        categoryName={categoryName}
+      />
     );
   }
 
-  // ---- step one: the nominees, and nothing else --------------------------
-  if (step === "select" && !awaitingCode) {
-    return (
-      <div className="mt-8">
-        <StepBar step={1} />
-
-        <ul className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {nominees.map((nominee) => (
-            <NomineeCard
-              key={nominee.id}
-              nominee={nominee}
-              photoUrl={nominee.photo_path ? (photoUrls[nominee.photo_path] ?? null) : null}
-              selectable
-              selected={selected.includes(nominee.id)}
-              onToggle={() => toggle(nominee.id)}
-            />
-          ))}
-        </ul>
-
-        {/* Sticky, because the selection is made anywhere down a long grid and
-          * the way forward should never be somewhere the voter has to hunt. */}
-        <div className="sticky bottom-0 z-10 mt-6 -mx-4 border-t border-line bg-canvas/95 px-4 py-3.5 backdrop-blur sm:-mx-5 sm:px-5">
-          <div className="mx-auto flex max-w-xl flex-wrap items-center justify-between gap-3">
-            <p className="text-[13px] font-medium text-ink">
-              {selected.length === 0 ? (
-                <span className="text-ink-muted">Tick everyone you want to vote for</span>
-              ) : (
-                <>
-                  <span className="text-accent">{selected.length}</span> selected
-                </>
-              )}
-            </p>
-            <button
-              type="button"
-              onClick={() => setStep("details")}
-              disabled={selected.length === 0}
-              className="w-full rounded-xl bg-accent px-8 py-3 text-base font-semibold text-white
-                         shadow-lg shadow-accent/25 transition-colors hover:bg-accent-hover
-                         disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
-            >
-              Continue
-            </button>
-          </div>
-        </div>
-
-        <p className="mt-4 text-center text-[12px] text-ink-muted">
-          One vote per nominee. You can back several nominees in this category.
-        </p>
-      </div>
-    );
-  }
-
-  // ---- step two: details, then the emailed code --------------------------
   return (
     <>
       {turnstileSiteKey && (
         <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" strategy="lazyOnload" />
       )}
 
-      <div className="mt-8">
-        <StepBar step={2} />
+      <form
+        id="vote"
+        action={awaitingCode ? codeAction : action}
+        className="mx-auto mt-6 max-w-xl scroll-mt-6"
+      >
+        <input type="hidden" name="nominee_code" value={nomineeCode} />
+        <input ref={deviceIdRef} type="hidden" name="device_id" defaultValue="" />
+        {/* The fields are unmounted during the code step, so their values
+          * travel as hidden inputs instead. */}
+        {awaitingCode && (
+          <>
+            <input type="hidden" name="voter_name" value={details.name} />
+            <input type="hidden" name="voter_mobile" value={details.mobile} />
+            <input type="hidden" name="voter_email" value={details.email} />
+            <input type="hidden" name="voter_location" value={details.location} />
+          </>
+        )}
 
-        <form action={awaitingCode ? codeAction : action} className="mx-auto mt-5 max-w-xl">
-          <input type="hidden" name="slug" value={slug} />
-          <input ref={deviceIdRef} type="hidden" name="device_id" defaultValue="" />
-          {selected.map((id) => (
-            <input key={id} type="hidden" name="nominee" value={id} />
-          ))}
-          {/* The fields are unmounted during the code step, so their values
-            * travel as hidden inputs instead. */}
-          {awaitingCode && (
+        <div className="rounded-2xl border border-line bg-surface/70 p-5 sm:p-6">
+          {awaitingCode ? (
+            <CodeStep
+              email={active.email}
+              message={active.message}
+              turnstileSiteKey={turnstileSiteKey}
+            />
+          ) : (
             <>
-              <input type="hidden" name="voter_name" value={details.name} />
-              <input type="hidden" name="voter_mobile" value={details.mobile} />
-              <input type="hidden" name="voter_email" value={details.email} />
-              <input type="hidden" name="voter_location" value={details.location} />
+              <h2 className="text-base font-bold text-heading">Vote for {nomineeName}</h2>
+              <p className="mt-1 text-[13px] leading-relaxed text-ink-muted">
+                {requireCode
+                  ? "Fill in your details and we email you a code to confirm it’s you."
+                  : "Your mobile number and email keep voting to one vote per person, so please use your own."}
+              </p>
+
+              <div className="mt-4 grid gap-3.5 sm:grid-cols-2">
+                <TextField
+                  id={`${formId}-name`}
+                  name="voter_name"
+                  label="Your name"
+                  required
+                  value={details.name}
+                  onChange={(v) => setDetails((d) => ({ ...d, name: v }))}
+                />
+                <TextField
+                  id={`${formId}-mobile`}
+                  name="voter_mobile"
+                  label="Mobile number"
+                  required
+                  inputMode="tel"
+                  value={details.mobile}
+                  onChange={(v) => setDetails((d) => ({ ...d, mobile: v }))}
+                />
+                <TextField
+                  id={`${formId}-email`}
+                  name="voter_email"
+                  label="Email"
+                  required
+                  type="email"
+                  hint={requireCode ? "Your code comes here" : "One vote per email address"}
+                  value={details.email}
+                  onChange={(v) => setDetails((d) => ({ ...d, email: v }))}
+                />
+                <TextField
+                  id={`${formId}-location`}
+                  name="voter_location"
+                  label="Location"
+                  value={details.location}
+                  onChange={(v) => setDetails((d) => ({ ...d, location: v }))}
+                />
+              </div>
+
+              {turnstileSiteKey && (
+                <div
+                  className="cf-turnstile mt-4"
+                  data-sitekey={turnstileSiteKey}
+                  data-theme="dark"
+                  data-size="flexible"
+                />
+              )}
+
+              {active.status === "error" && <Problem>{active.message}</Problem>}
+
+              <div className="mt-5">
+                {requireCode ? (
+                  <Submit label="Send my code" busy="Checking…" />
+                ) : (
+                  <Submit label="Submit my vote" busy="Recording…" />
+                )}
+              </div>
             </>
           )}
+        </div>
 
-          {/* What she picked, since the cards are no longer on screen. */}
-          <div className="rounded-2xl border border-line bg-surface/70 p-4 sm:p-5">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="text-[15px] font-bold text-heading">
-                Voting for {chosen.length} nominee{chosen.length === 1 ? "" : "s"}
-              </h2>
-              {!awaitingCode && (
-                <button
-                  type="button"
-                  onClick={() => setStep("select")}
-                  className="text-[13px] font-semibold text-accent underline underline-offset-2"
-                >
-                  Change selection
-                </button>
-              )}
-            </div>
-            <ul className="mt-2.5 flex flex-wrap gap-1.5">
-              {chosen.map((nominee) => (
-                <li
-                  key={nominee.id}
-                  className="rounded-full bg-accent-soft px-2.5 py-1 text-[12px] font-medium text-accent"
-                >
-                  {nominee.display_name}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="mt-4 rounded-2xl border border-line bg-surface/70 p-5 sm:p-6">
-            {awaitingCode ? (
-              <CodeStep
-                email={active.email}
-                message={active.message}
-                turnstileSiteKey={turnstileSiteKey}
-              />
-            ) : (
-              <>
-                <h2 className="text-base font-bold text-heading">Your details</h2>
-                <p className="mt-1 text-[13px] leading-relaxed text-ink-muted">
-                  Filled once, however many nominees you picked.{" "}
-                  {requireCode
-                    ? "We email you a code to confirm it’s you — one code covers your whole visit."
-                    : "Your mobile number and email keep voting to one vote per nominee, so please use your own."}
-                </p>
-
-                <div className="mt-4 grid gap-3.5 sm:grid-cols-2">
-                  <TextField
-                    id={`${formId}-name`}
-                    name="voter_name"
-                    label="Your name"
-                    required
-                    value={details.name}
-                    onChange={(v) => setDetails((d) => ({ ...d, name: v }))}
-                  />
-                  <TextField
-                    id={`${formId}-mobile`}
-                    name="voter_mobile"
-                    label="Mobile number"
-                    required
-                    inputMode="tel"
-                    value={details.mobile}
-                    onChange={(v) => setDetails((d) => ({ ...d, mobile: v }))}
-                  />
-                  <TextField
-                    id={`${formId}-email`}
-                    name="voter_email"
-                    label="Email"
-                    required
-                    type="email"
-                    hint={requireCode ? "Your code comes here" : "One vote per nominee, per email"}
-                    value={details.email}
-                    onChange={(v) => setDetails((d) => ({ ...d, email: v }))}
-                  />
-                  <TextField
-                    id={`${formId}-location`}
-                    name="voter_location"
-                    label="Location"
-                    value={details.location}
-                    onChange={(v) => setDetails((d) => ({ ...d, location: v }))}
-                  />
-                </div>
-
-                {turnstileSiteKey && (
-                  <div
-                    className="cf-turnstile mt-4"
-                    data-sitekey={turnstileSiteKey}
-                    data-theme="dark"
-                    data-size="flexible"
-                  />
-                )}
-
-                {active.status === "error" && <Problem>{active.message}</Problem>}
-
-                <div className="mt-5">
-                  {requireCode ? (
-                    <Submit label="Send my code" busy="Checking…" />
-                  ) : (
-                    <Submit label="Submit my votes" busy="Recording…" />
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        </form>
-      </div>
+        <p className="mt-3 text-center text-[12px] text-ink-muted">
+          One vote per person for each nominee.
+        </p>
+      </form>
     </>
-  );
-}
-
-/** Where the voter is, in two steps. */
-function StepBar({ step }: { step: 1 | 2 }) {
-  const steps = [
-    { n: 1, label: "Choose nominees" },
-    { n: 2, label: "Your details" },
-  ];
-
-  return (
-    <ol className="mx-auto flex max-w-xl items-center gap-2">
-      {steps.map((item, index) => {
-        const done = step > item.n;
-        const current = step === item.n;
-        return (
-          <li key={item.n} className="flex flex-1 items-center gap-2">
-            <span
-              aria-current={current ? "step" : undefined}
-              className={`flex size-6 shrink-0 items-center justify-center rounded-full text-[12px] font-bold ${
-                current
-                  ? "bg-accent text-white"
-                  : done
-                    ? "bg-accent/25 text-accent"
-                    : "bg-surface text-ink-muted ring-1 ring-inset ring-line"
-              }`}
-            >
-              {done ? "✓" : item.n}
-            </span>
-            <span
-              className={`whitespace-nowrap text-[13px] font-medium ${
-                current ? "text-heading" : "text-ink-muted"
-              }`}
-            >
-              {item.label}
-            </span>
-            {index === 0 && <span className="h-px flex-1 bg-line" />}
-          </li>
-        );
-      })}
-    </ol>
   );
 }
 
@@ -381,7 +244,7 @@ function CodeStep({
       <h2 className="text-base font-bold text-heading">Check your email</h2>
       <p className="mt-1 text-[13px] leading-relaxed text-ink-muted">
         We sent a 6-digit code to <strong className="text-ink">{email}</strong>. Enter it to record
-        your votes. It also unlocks any other category for the rest of your visit.
+        your vote. It also covers any other nominee you vote for during this visit.
       </p>
 
       <label className="mt-4 block">
@@ -413,7 +276,7 @@ function CodeStep({
       {message && <Problem>{message}</Problem>}
 
       <div className="mt-5">
-        <Submit label="Confirm my votes" busy="Recording…" />
+        <Submit label="Confirm my vote" busy="Recording…" />
       </div>
 
       <p className="mt-3 text-[12px] text-ink-muted">
@@ -424,76 +287,64 @@ function CodeStep({
 }
 
 /**
- * The confirmation (section 6): a receipt per nominee recorded, and a plain
- * note for any that were already voted for. Both are shown, because a batch is
- * not all-or-nothing and hiding the skipped ones would look like a silent
- * failure.
+ * The confirmation (section 6): her receipt when the vote is recorded, or a
+ * plain note when this voter had already voted for her -- never a silent
+ * nothing, which would look like a failure.
  */
 function Receipt({
   outcomes,
+  nomineeName,
   categoryName,
-  requireCode,
 }: {
-  outcomes: { nomineeId: string; name: string; status: string; voteRef?: string }[];
+  outcomes: VoteOutcome[];
+  nomineeName: string;
   categoryName: string;
-  requireCode: boolean;
 }) {
-  const recorded = outcomes.filter((o) => o.status === "recorded");
-  const already = outcomes.filter((o) => o.status === "already");
-  const failed = outcomes.filter((o) => o.status === "failed");
+  // One nominee per page, so one outcome. Read defensively all the same: an
+  // empty list means the server found nobody to record a vote for.
+  const outcome = outcomes[0];
+  const status = outcome?.status ?? "failed";
 
   return (
-    <div className="mx-auto mt-8 max-w-xl rounded-2xl border border-gold/30 bg-gold/10 p-6 text-center">
+    <div className="mx-auto mt-6 max-w-xl rounded-2xl border border-gold/30 bg-gold/10 p-6 text-center">
       <p aria-hidden="true" className="text-3xl">
-        {recorded.length > 0 ? "🎉" : "👍"}
+        {status === "recorded" ? "🎉" : status === "already" ? "👍" : "⚠️"}
       </p>
       <h2 className="mt-2 text-xl font-bold tracking-tight text-heading">
-        {recorded.length > 0
-          ? `${recorded.length} vote${recorded.length === 1 ? "" : "s"} recorded`
-          : "Nothing new to record"}
-        {already.length > 0 && `, ${already.length} already voted for`}
+        {status === "recorded"
+          ? `Your vote for ${nomineeName} is recorded`
+          : status === "already"
+            ? `You have already voted for ${nomineeName}`
+            : "Your vote could not be recorded"}
       </h2>
-      <p className="mt-1.5 text-[13px] text-ink-muted">in {categoryName}</p>
+      <p className="mt-1.5 text-[13px] text-ink-muted">{categoryName} · AWE Awards 2026</p>
 
-      {recorded.length > 0 && (
-        <ul className="mt-5 space-y-2 text-left">
-          {recorded.map((outcome) => (
-            <li
-              key={outcome.nomineeId}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-xl
-                         bg-surface/70 px-3.5 py-2.5"
-            >
-              <span className="text-[14px] font-semibold text-heading">{outcome.name}</span>
-              {outcome.voteRef && (
-                <span className="font-mono text-[12px] font-semibold text-accent">
-                  {outcome.voteRef}
-                </span>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {already.length > 0 && (
-        <p className="mt-4 text-left text-[13px] leading-relaxed text-ink-muted">
-          You had already voted for{" "}
-          <strong className="text-ink">{already.map((o) => o.name).join(", ")}</strong>. Each
-          nominee can only be voted for once.
+      {status === "recorded" && outcome?.voteRef && (
+        <p className="mt-4 text-[13px] text-ink-muted">
+          Your reference{" "}
+          <span className="ml-1 rounded-md bg-surface/70 px-2.5 py-1 font-mono text-[13px] font-semibold text-accent">
+            {outcome.voteRef}
+          </span>
         </p>
       )}
 
-      {failed.length > 0 && (
-        <p className="mt-3 text-left text-[13px] font-medium text-accent">
-          Could not record a vote for {failed.map((o) => o.name).join(", ")}. Please try again.
+      {status === "already" && (
+        <p className="mt-4 text-[13px] leading-relaxed text-ink-muted">
+          Each person can vote for a nominee once. Thank you for supporting her!
         </p>
       )}
 
-      <p className="mt-5 text-[12px] text-ink-muted">
-        Keep these reference codes.{" "}
-        {requireCode
-          ? "Voting in another category needs no new code this visit."
-          : "You can vote in another category from its own page."}
-      </p>
+      {status === "failed" && (
+        <p className="mt-4 text-[13px] font-medium text-accent">
+          Please reload the page and try again.
+        </p>
+      )}
+
+      {status !== "failed" && (
+        <p className="mt-5 text-[13px] font-medium text-ink">
+          Help her win — share this page with your friends and family.
+        </p>
+      )}
     </div>
   );
 }

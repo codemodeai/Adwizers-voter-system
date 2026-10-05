@@ -57,7 +57,7 @@ export function VotingRulesForm({ rules }: { rules: VotingRules }) {
         <Field
           label="Votes per minute, per IP address"
           htmlFor="rate_limit_per_ip_per_minute"
-          hint="Blunts scripted bursts. Too low and a family on one wifi connection blocks each other. Plan default: 3."
+          hint="Each vote is one nominee. Blunts scripted bursts — too low and a family on one wifi connection, or many phones on one mobile network, block each other. Plan default: 3."
         >
           <input
             id="rate_limit_per_ip_per_minute"
@@ -72,7 +72,7 @@ export function VotingRulesForm({ rules }: { rules: VotingRules }) {
         <Field
           label="Votes per hour, per device"
           htmlFor="rate_limit_per_device_per_hour"
-          hint="Covers one real voter moving across several categories, while still stopping flooding. Plan default: 20."
+          hint="Covers one real voter supporting several nominees from their links, while still stopping flooding. Plan default: 20."
         >
           <input
             id="rate_limit_per_device_per_hour"
@@ -96,22 +96,6 @@ export function VotingRulesForm({ rules }: { rules: VotingRules }) {
             min={5}
             max={240}
             defaultValue={rules.verify_session_minutes}
-            className={inputClass}
-          />
-        </Field>
-
-        <Field
-          label="Maximum nominees per submission"
-          htmlFor="max_selections_per_submit"
-          hint="Leave empty for no limit — the plan allows voting for every nominee in a category at once."
-        >
-          <input
-            id="max_selections_per_submit"
-            name="max_selections_per_submit"
-            type="number"
-            min={1}
-            placeholder="No limit"
-            defaultValue={rules.max_selections_per_submit ?? ""}
             className={inputClass}
           />
         </Field>

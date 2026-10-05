@@ -83,7 +83,7 @@ export function NomineeEditor({
     <div className="space-y-5">
       <Panel
         title="Card photo"
-        hint="Shown on the category voting page. Replacing it here leaves her original upload on the entry untouched."
+        hint="Shown on her voting page and her category's directory. Replacing it here leaves her original upload on the entry untouched."
       >
         <div className="flex flex-wrap items-start gap-5">
           <div className="shrink-0 space-y-2">
@@ -193,7 +193,7 @@ export function NomineeEditor({
       <form action={action} className="space-y-5">
         <input type="hidden" name="id" value={nominee.id} />
 
-        <Panel title="Public profile" hint="This is exactly what voters read on her card.">
+        <Panel title="Public profile" hint="This is exactly what voters read on her voting page.">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Name on the card" htmlFor="display_name" required error={errors.display_name}>
               <input
@@ -306,9 +306,9 @@ export function NomineeEditor({
                          focus:ring-magenta-royal/30"
             />
             <span>
-              <Label>Show this nominee on her category&rsquo;s voting page</Label>
+              <Label>Live — her voting link opens and she is listed in her category</Label>
               <span className="mt-0.5 block text-[13px] text-ink-muted">
-                Unticking hides the card without deleting anything — her profile, her original
+                Unticking closes her link without deleting anything — her profile, her original
                 entry, and any votes stay exactly as they are.
               </span>
             </span>
