@@ -11,11 +11,10 @@ function text(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
 }
 
-function revalidateCategories(slugs: (string | null | undefined)[] = []) {
+function revalidateCategories() {
   revalidatePath("/admin/categories");
   revalidatePath("/admin/nominees");
   revalidatePath("/register");
-  for (const slug of slugs) if (slug) revalidatePath(`/vote/${slug}`);
 }
 
 /**
@@ -59,14 +58,14 @@ export async function createCategory(
       return {
         status: "error",
         message: error.message.includes("slug")
-          ? `The link /vote/${slug} is already taken.`
+          ? "A category with a very similar name already exists."
           : `A category called "${name}" already exists.`,
       };
     }
     return { status: "error", message: error.message };
   }
 
-  revalidateCategories([slug]);
+  revalidateCategories();
   return { status: "saved", message: `Added "${name}".` };
 }
 
@@ -108,22 +107,16 @@ export async function updateCategory(
       return {
         status: "error",
         message: error.message.includes("slug")
-          ? `The link /vote/${slug} is already taken.`
+          ? "A category with a very similar name already exists."
           : `A category called "${name}" already exists.`,
       };
     }
     return { status: "error", message: error.message };
   }
 
-  revalidateCategories([current.slug, slug]);
+  revalidateCategories();
 
-  return {
-    status: "saved",
-    message:
-      slug === current.slug
-        ? "Category saved."
-        : `Saved. The link is now /vote/${slug} — /vote/${current.slug} no longer works.`,
-  };
+  return { status: "saved", message: "Category saved." };
 }
 
 /**
@@ -155,7 +148,7 @@ export async function setCategoryActive(
 
   if (error) return { ok: false, error: error.message };
 
-  revalidateCategories([category.slug]);
+  revalidateCategories();
   return { ok: true };
 }
 

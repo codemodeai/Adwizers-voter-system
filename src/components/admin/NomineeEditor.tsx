@@ -83,7 +83,7 @@ export function NomineeEditor({
     <div className="space-y-5">
       <Panel
         title="Card photo"
-        hint="Shown on her voting page and her category's directory. Replacing it here leaves her original upload on the entry untouched."
+        hint="Shown on her voting page. Replacing it here leaves her original upload on the entry untouched."
       >
         <div className="flex flex-wrap items-start gap-5">
           <div className="shrink-0 space-y-2">
@@ -306,7 +306,7 @@ export function NomineeEditor({
                          focus:ring-magenta-royal/30"
             />
             <span>
-              <Label>Live — her voting link opens and she is listed in her category</Label>
+              <Label>Live — her voting link opens</Label>
               <span className="mt-0.5 block text-[13px] text-ink-muted">
                 Unticking closes her link without deleting anything — her profile, her original
                 entry, and any votes stay exactly as they are.

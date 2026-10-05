@@ -4,8 +4,8 @@ import Script from "next/script";
 import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 
-import { startVote, submitWithCode } from "@/app/vote/[slug]/actions";
-import { EMPTY_VOTE_STATE, type VoteOutcome, type VoteState } from "@/app/vote/[slug]/state";
+import { startVote, submitWithCode } from "@/app/nominee/[code]/actions";
+import { EMPTY_VOTE_STATE, type VoteOutcome, type VoteState } from "@/app/nominee/[code]/state";
 
 const DEVICE_KEY = "awe_device_id";
 

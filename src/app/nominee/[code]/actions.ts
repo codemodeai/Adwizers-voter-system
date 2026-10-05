@@ -1,7 +1,6 @@
 "use server";
 
 import { randomBytes } from "node:crypto";
-import { revalidatePath } from "next/cache";
 
 import { generateCode, sendVerificationCode } from "@/lib/email/verificationCode";
 import { checkRateLimits, logAttempt } from "@/lib/rateLimit";
@@ -47,12 +46,11 @@ import type { VoteOutcome, VoteState } from "./state";
  * compared or stored -- see `@/lib/phone` -- so typing the same number with
  * spaces, a 0 or a +91 does not make it a different voter.
  *
- * Votes are cast from a nominee's personal page (/nominee/AWE2026-007), which
- * posts her number. The category and nominee are resolved from that number on
- * the server -- see `readBallot` -- and then run through exactly the same gate
- * and the same per-nominee insert as before. The older shape, a category slug
- * plus a list of nominee ids, is still accepted so a category page that was
- * already open in someone's browser when this shipped can finish its submit.
+ * Votes are cast only from a nominee's personal page (/nominee/AWE2026-007),
+ * which posts her number. The category and nominee are resolved from that
+ * number on the server -- see `readBallot`. Category-wide voting pages were
+ * withdrawn at the client's request, so a submission without a nominee number
+ * is refused as a closed page.
  */
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -76,12 +74,9 @@ function parse(formData: FormData): Parsed {
   const mobile = normaliseMobile(String(formData.get("voter_mobile") ?? ""));
 
   return {
-    nomineeIds: formData
-      .getAll("nominee")
-      .filter((v): v is string => typeof v === "string")
-      // De-duplicated: a repeated id would otherwise clash with itself and be
-      // reported back as "already voted for" in the same submission.
-      .filter((v, i, all) => all.indexOf(v) === i),
+    // Filled in by `readBallot` from the nominee number -- never taken from
+    // the form, so a submission cannot name a nominee directly.
+    nomineeIds: [],
     name: String(formData.get("voter_name") ?? "").trim(),
     mobile: mobile.ok ? mobile.mobile : "",
     mobileError: mobile.ok ? undefined : mobile.error,
@@ -93,20 +88,20 @@ function parse(formData: FormData): Parsed {
 }
 
 /**
- * Which category and nominees this submission is for.
+ * Which nominee this submission is for.
  *
- * A personal page sends only the nominee's number, and everything else is
+ * The personal page sends only the nominee's number, and everything else is
  * looked up here: her id, and her category's slug for the gate. Nothing the
- * browser says about either is trusted. A number that does not resolve to a
- * live nominee leaves the slug empty, which the gate refuses as a closed page.
+ * browser says about either is trusted. No number, or one that does not
+ * resolve to a live nominee, leaves the slug empty -- which the gate refuses
+ * as a closed page. That includes anything still posting the old category-page
+ * form.
  */
 async function readBallot(formData: FormData): Promise<{ slug: string; input: Parsed }> {
   const input = parse(formData);
   const rawCode = formData.get("nominee_code");
 
-  if (typeof rawCode !== "string") {
-    return { slug: String(formData.get("slug") ?? ""), input };
-  }
+  if (typeof rawCode !== "string") return { slug: "", input };
 
   const code = normaliseNomineeCode(rawCode);
   const page = code ? await publicNomineePage(code) : null;
@@ -370,7 +365,6 @@ export async function startVote(_prev: VoteState, formData: FormData): Promise<V
       deviceId,
       ipHash,
     });
-    revalidatePath(`/vote/${slug}`);
     return { status: "done", outcomes };
   }
 
@@ -444,6 +438,5 @@ export async function submitWithCode(_prev: VoteState, formData: FormData): Prom
     ipHash: checked.ipHash,
   });
 
-  revalidatePath(`/vote/${slug}`);
   return { status: "done", outcomes };
 }

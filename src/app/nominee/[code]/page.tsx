@@ -176,7 +176,7 @@ export default async function NomineeVotePage({ params }: PageProps<"/nominee/[c
           </div>
         </section>
 
-        <VotingNotice state={state} page="nominee" />
+        <VotingNotice state={state} />
 
         {state === "open" && (
           <VoteForm

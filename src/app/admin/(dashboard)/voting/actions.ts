@@ -9,11 +9,11 @@ export type VotingResult = { ok: boolean; error?: string };
 
 const VALID: VotingStatus[] = ["not_started", "open", "paused", "stopped"];
 
-/** Every screen that reports voting state, plus every public category page. */
+/** Every screen that reports voting state. Nominee pages render per request. */
 function revalidateVoting() {
   revalidatePath("/admin/voting");
   revalidatePath("/admin/categories");
-  revalidatePath("/vote", "layout");
+  revalidatePath("/nominee", "layout");
 }
 
 /**
@@ -73,7 +73,6 @@ export async function setCategoryVotingPaused(
   if (error) return { ok: false, error: error.message };
 
   revalidateVoting();
-  revalidatePath(`/vote/${category.slug}`);
   return { ok: true };
 }
 

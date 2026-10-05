@@ -59,7 +59,7 @@ export async function setPaymentReceived(
 
 /**
  * Promote to Nominee (Final Plan section 4), in the order the plan gives:
- * create the linked nominee profile, publish it on the category page, mark the
+ * create the linked nominee profile, put her voting page live, mark the
  * applicant promoted, then notify her.
  *
  * Order matters twice over. The plan's workflow is submit -> payment received
@@ -169,14 +169,12 @@ export async function promoteToNominee(id: string): Promise<PromoteResult> {
     name: applicant.full_name,
     businessName: applicant.business_name,
     categoryName: applicant.categories.name,
-    categorySlug: applicant.categories.slug,
   });
 
   revalidatePath("/admin/applicants");
   revalidatePath(`/admin/applicants/${id}`);
   revalidatePath("/admin/nominees");
   revalidatePath("/admin/categories");
-  revalidatePath(`/vote/${applicant.categories.slug}`);
 
   return { ok: true, notice };
 }
