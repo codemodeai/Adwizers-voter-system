@@ -60,3 +60,16 @@ export function normaliseMobile(raw: string): MobileResult {
 
   return { ok: true, mobile: `+91${digits}` };
 }
+
+/**
+ * A stored mobile as people in India read it: `+919876543210` becomes
+ * `9876543210`. Anything else (a number from another country) is returned
+ * unchanged.
+ *
+ * Used for CSV exports, where a value starting with `+` has to be escaped
+ * against spreadsheet formulas and would otherwise open as `'+919876543210`.
+ */
+export function displayMobile(stored: string | null | undefined): string {
+  if (!stored) return "";
+  return /^\+91[6-9]\d{9}$/.test(stored) ? stored.slice(3) : stored;
+}

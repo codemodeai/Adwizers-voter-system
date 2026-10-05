@@ -115,7 +115,8 @@ export function VoteForm({
         <div className="rounded-2xl border border-line bg-surface/70 p-5 sm:p-6">
           <h2 className="text-base font-bold text-heading">Vote for {nomineeName}</h2>
           <p className="mt-1 text-[13px] leading-relaxed text-ink-muted">
-            Your mobile number and email keep voting to one vote per person, so please use your own.
+            Just your name and mobile number. Your mobile number keeps it to one vote per person, so
+            please use your own.
           </p>
 
           <div className="mt-4 grid gap-3.5 sm:grid-cols-2">
@@ -143,9 +144,8 @@ export function VoteForm({
               id={`${formId}-email`}
               name="voter_email"
               label="Email"
-              required
+              optional
               type="email"
-              hint="One vote per email address"
               value={details.email}
               onChange={(v) => setDetails((d) => ({ ...d, email: v }))}
             />
@@ -153,6 +153,7 @@ export function VoteForm({
               id={`${formId}-location`}
               name="voter_location"
               label="Location"
+              optional
               value={details.location}
               onChange={(v) => setDetails((d) => ({ ...d, location: v }))}
             />
@@ -264,6 +265,7 @@ function TextField({
   value,
   onChange,
   required = false,
+  optional = false,
   type = "text",
   inputMode,
   hint,
@@ -276,6 +278,9 @@ function TextField({
   value: string;
   onChange: (value: string) => void;
   required?: boolean;
+  /** Shows "(optional)" beside the label, so a voter can see at a glance
+   *  which fields she may skip. */
+  optional?: boolean;
   type?: string;
   inputMode?: "tel" | "numeric" | "email";
   hint?: string;
@@ -290,6 +295,9 @@ function TextField({
           <span aria-hidden="true" className="ml-0.5 text-accent">
             *
           </span>
+        )}
+        {optional && (
+          <span className="ml-1.5 text-[12px] font-normal text-ink-muted">(optional)</span>
         )}
       </span>
       <input

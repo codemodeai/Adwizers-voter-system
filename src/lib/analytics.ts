@@ -47,10 +47,10 @@ export async function analyticsSummary(): Promise<AnalyticsSummary> {
     // Vote rows, not a count: the by-category tally, unique-voter count and
     // top-nominee list all come from this one read rather than four. Paged,
     // because a single select stops at Supabase's 1,000-row cap.
-    selectAll<{ nominee_id: string; category_id: number; voter_email: string }>((from, to) =>
+    selectAll<{ nominee_id: string; category_id: number; voter_mobile: string }>((from, to) =>
       supabase
         .from("votes")
-        .select("nominee_id, category_id, voter_email")
+        .select("nominee_id, category_id, voter_mobile")
         .order("created_at", { ascending: true })
         .order("id", { ascending: true })
         .range(from, to),
@@ -83,9 +83,10 @@ export async function analyticsSummary(): Promise<AnalyticsSummary> {
   for (const vote of votes) {
     votesPerCategory.set(vote.category_id, (votesPerCategory.get(vote.category_id) ?? 0) + 1);
     votesPerNominee.set(vote.nominee_id, (votesPerNominee.get(vote.nominee_id) ?? 0) + 1);
-    // Section 8 verifies the email, so it is the closest thing to an identity
-    // this system has. Lower-cased for the same reason the unique index is.
-    voters.add(vote.voter_email.trim().toLowerCase());
+    // The mobile number is the one contact detail every vote carries (email is
+    // optional), and it is stored in one standard form -- so it is the
+    // closest thing to an identity this system has.
+    voters.add(vote.voter_mobile);
   }
 
   const nomineesPerCategory = new Map<number, number>();

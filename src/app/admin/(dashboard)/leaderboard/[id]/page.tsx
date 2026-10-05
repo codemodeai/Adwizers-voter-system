@@ -143,7 +143,7 @@ export default async function NomineeVotesPage({ params }: PageProps<"/admin/lea
                   <td className="whitespace-nowrap px-4 py-2.5 tabular-nums text-charcoal">
                     {vote.voter_mobile}
                   </td>
-                  <td className="px-4 py-2.5 text-charcoal">{vote.voter_email}</td>
+                  <td className="px-4 py-2.5 text-charcoal">{vote.voter_email || "—"}</td>
                   <td className="px-4 py-2.5 text-ink-muted">{vote.voter_location || "—"}</td>
                 </tr>
               ))}

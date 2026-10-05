@@ -22,7 +22,8 @@ Voting is **per nominee**: every nominee has a personal link,
 at promotion. It never changes, so a link on a poster survives edits to her
 name. Admins send it from **Nominees** (Copy link / Send on WhatsApp — the chat
 opens straight to the WhatsApp number on her entry) and it is in the selection
-email. A voter opens it, fills name, mobile and email, and votes for her alone.
+email. A voter opens it, fills name and mobile (email and location optional), and
+votes for her alone.
 
 There is **no category voting page**. The old category links (`/vote/[slug]`)
 were withdrawn at the client's request and now return "not found", and the
@@ -32,7 +33,8 @@ pause.
 
 ### Duplicate votes
 
-One vote per nominee **per mobile number** and **per email address**, enforced
+One vote per nominee **per mobile number**, and **per email address** when the
+voter gives one (email is optional since migration `20261005000003`), enforced
 by unique indexes on `votes`. There is no per-device rule (dropped at the
 client's request, migration `20261005000001`): several people sharing one phone
 can each vote. Mobile numbers are checked to be a real 10-digit Indian mobile
