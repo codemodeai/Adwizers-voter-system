@@ -14,11 +14,7 @@ import {
 } from "@/lib/nominees";
 import { FORM_ORIGIN } from "@/lib/target";
 import { turnstileSiteKey } from "@/lib/turnstile";
-import {
-  categoryVotingState,
-  emailVerificationRequired,
-  getPublicVotingSettings,
-} from "@/lib/voting";
+import { categoryVotingState, getPublicVotingSettings } from "@/lib/voting";
 
 /**
  * A nominee's personal voting page (/nominee/AWE2026-007).
@@ -77,9 +73,8 @@ export default async function NomineeVotePage({ params }: PageProps<"/nominee/[c
 
   const { nominee, category } = page;
 
-  const [settings, requireCode, photoUrls] = await Promise.all([
+  const [settings, photoUrls] = await Promise.all([
     getPublicVotingSettings(),
-    emailVerificationRequired(),
     signNomineePhotos([nominee.photo_path]),
   ]);
 
@@ -184,7 +179,6 @@ export default async function NomineeVotePage({ params }: PageProps<"/nominee/[c
             nomineeName={nominee.display_name}
             categoryName={category.name}
             turnstileSiteKey={turnstileSiteKey()}
-            requireCode={requireCode}
           />
         )}
 

@@ -2,41 +2,27 @@
 
 import { randomBytes } from "node:crypto";
 
-import { generateCode, sendVerificationCode } from "@/lib/email/verificationCode";
 import { checkRateLimits, logAttempt } from "@/lib/rateLimit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normaliseNomineeCode, publicNomineePage } from "@/lib/nominees";
 import { normaliseMobile } from "@/lib/phone";
 import { createPublicClient } from "@/lib/supabase/public";
 import { verifyTurnstile } from "@/lib/turnstile";
-import {
-  callerIp,
-  ensureDeviceId,
-  hashIp,
-  startSession,
-  verifiedSessionFor,
-  verifyCode,
-} from "@/lib/voteSession";
+import { callerIp, ensureDeviceId, hashIp } from "@/lib/voter";
 import { categoryVotingState, getRuntimeVotingConfig } from "@/lib/voting";
 import type { VoteOutcome, VoteState } from "./state";
 
 /**
- * The vote submission sequence (Final Plan section 8), in the order the plan
- * lays out and for the reasons it gives:
+ * The vote submission sequence (Final Plan section 8), in order:
  *
- *   1. rate limit   -- server-side, first, cheapest
- *   2. Turnstile    -- before any email is sent or database row is touched
- *   3. verification -- one emailed code per session, not per vote
- *   4. save         -- one row per nominee, each checked independently
+ *   1. rate limit -- server-side, first, cheapest
+ *   2. Turnstile  -- before any database row is touched
+ *   3. save       -- checked against the duplicate rules on the votes table
  *
- * Both entry points below run the same sequence; they differ only in whether a
- * code is being requested or supplied.
- *
- * Step 3 is now switchable, and off unless an admin turns it on
- * (`require_email_verification`). With it off the vote is cast straight after
- * the captcha, and what holds a voter to one vote per nominee is the two
- * unique indexes on the votes table -- mobile number and email -- plus the
- * rate limits above them.
+ * Nothing is sent to the voter and nothing is verified: there is no emailed
+ * code (removed at the client's request). What holds a voter to one vote per
+ * nominee is the two unique indexes on the votes table -- mobile number and
+ * email -- plus the rate limits above them.
  *
  * There is deliberately no per-device rule (dropped at the client's request):
  * a family sharing one phone can each vote for the same nominee. The device id
@@ -220,7 +206,7 @@ async function gate(slug: string, input: Parsed): Promise<GateResult> {
     };
   }
 
-  // 2. Turnstile -- before an email is sent or a row is written.
+  // 2. Turnstile -- before a row is written.
   const captcha = await verifyTurnstile(input.token, ip);
   if (!captcha.ok) {
     await logAttempt({
@@ -337,97 +323,16 @@ async function castVotes(params: {
 }
 
 /**
- * Step one: validate, rate-limit, check the captcha, then either cast the votes
- * (if this visit is already verified) or email a code.
+ * The one entry point: validate, rate-limit, check the captcha, then record the
+ * vote. A server action is an addressable endpoint, so every check runs here
+ * on every call rather than trusting anything the page did first.
  */
-export async function startVote(_prev: VoteState, formData: FormData): Promise<VoteState> {
+export async function submitVote(_prev: VoteState, formData: FormData): Promise<VoteState> {
   const { slug, input } = await readBallot(formData);
 
   const checked = await gate(slug, input);
   if (!checked.ok) {
     return { status: "error", message: checked.error, field: checked.field };
-  }
-
-  const { category, rules, deviceId, ipHash } = checked;
-
-  // Two ways past the code, and they are different facts: verification is
-  // switched off altogether, or it is on and this visitor has already done it
-  // (section 8 -- once per visit, across categories).
-  const session = rules.require_email_verification
-    ? await verifiedSessionFor(input.email)
-    : null;
-
-  if (!rules.require_email_verification || session) {
-    const outcomes = await castVotes({
-      nomineeIds: input.nomineeIds,
-      categoryId: category.id,
-      input,
-      deviceId,
-      ipHash,
-    });
-    return { status: "done", outcomes };
-  }
-
-  const code = generateCode();
-  const started = await startSession({
-    email: input.email,
-    code,
-    minutes: rules.verify_session_minutes,
-    ipHash,
-    deviceId,
-  });
-
-  if (!started.ok) return { status: "error", message: started.error };
-
-  const sent = await sendVerificationCode({
-    to: input.email,
-    code,
-    minutes: rules.verify_session_minutes,
-  });
-
-  if (sent.status === "failed") {
-    return { status: "error", message: `Could not send your code: ${sent.error}` };
-  }
-
-  if (sent.status === "skipped") {
-    return {
-      status: "error",
-      message:
-        "Voting is not fully set up yet — verification codes cannot be sent. Please try again later.",
-    };
-  }
-
-  return { status: "code_sent", email: input.email };
-}
-
-/**
- * Step two: check the emailed code, then cast the same selection.
- *
- * The whole gate runs again rather than trusting the first pass. A server
- * action is an addressable endpoint, so this one cannot assume `startVote` ran
- * before it, or that voting is still open since it did.
- */
-export async function submitWithCode(_prev: VoteState, formData: FormData): Promise<VoteState> {
-  const { slug, input } = await readBallot(formData);
-  const code = String(formData.get("code") ?? "").trim();
-
-  if (!/^\d{6}$/.test(code)) {
-    return { status: "code_sent", email: input.email, message: "Enter the 6-digit code." };
-  }
-
-  const checked = await gate(slug, input);
-  if (!checked.ok) {
-    return { status: "error", message: checked.error, field: checked.field };
-  }
-
-  // Verification can be switched off between a code being sent and it being
-  // typed back. The already-sent code stays honoured rather than rejected --
-  // she is holding a code this site emailed her -- but a session that never
-  // got one cannot be conjured here either, so an unverifiable code is
-  // refused exactly as it would have been.
-  const verified = await verifyCode(input.email, code);
-  if (!verified.ok) {
-    return { status: "code_sent", email: input.email, message: verified.error };
   }
 
   const outcomes = await castVotes({

@@ -11,7 +11,6 @@ import {
   CATEGORY_STATE_LABEL,
   VOTING_STATUS_LABEL,
   categoryVotingState,
-  getVotingRules,
   getVotingSettings,
   type CategoryVotingState,
 } from "@/lib/voting";
@@ -49,11 +48,7 @@ const CHIP: Record<CategoryVotingState, string> = {
  * discovered.
  */
 export default async function VotingPage() {
-  const [settings, rules, groups] = await Promise.all([
-    getVotingSettings(),
-    getVotingRules(),
-    listCategoriesWithNominees(),
-  ]);
+  const [settings, groups] = await Promise.all([getVotingSettings(), listCategoriesWithNominees()]);
 
   const status = settings.status;
   const globallyOpen = status === "open";
@@ -191,23 +186,19 @@ export default async function VotingPage() {
         )}
       </section>
 
-      {/* What "open" actually turns on, since the answer changed: the emailed
-        * code is a setting now, and an admin opening voting should know which
+      {/* What "open" actually turns on, so an admin opening voting knows which
         * defences are standing without reading the code. */}
       <div className="rounded-xl border border-gold-champagne/30 bg-gold-soft px-4 py-3 text-[13px] leading-relaxed text-gold-champagne">
         <strong className="font-semibold">What &ldquo;open&rdquo; turns on.</strong> A voter opens a
-        nominee&rsquo;s personal link, fills in her details and submits. Each nominee can be voted for once per
-        mobile number and once per email address, on top of Turnstile and the rate limits. Mobile
-        numbers are checked to be real 10-digit numbers and compared in one standard form, so the
-        same number typed differently is still one voter. A shared phone can vote once per person. The emailed 6-digit code is a separate switch, currently{" "}
-        <strong className="font-semibold">
-          {rules.require_email_verification ? "on" : "off"}
-        </strong>{" "}
-        — change it in{" "}
+        nominee&rsquo;s personal link, fills in her details and submits — the vote is recorded
+        straight away, with no code sent. Each nominee can be voted for once per mobile number and
+        once per email address, on top of Turnstile and the rate limits in{" "}
         <Link href="/admin/settings" className="underline underline-offset-2">
           Settings
         </Link>
-        .
+        . Mobile numbers are checked to be real 10-digit numbers and compared in one standard form,
+        so the same number typed differently is still one voter. A shared phone can vote once per
+        person.
       </div>
     </div>
   );
