@@ -140,7 +140,8 @@ export type NomineeVote = {
   created_at: string;
   voter_name: string;
   voter_mobile: string;
-  voter_email: string;
+  /** Optional on the ballot, so null when the voter left it blank. */
+  voter_email: string | null;
   voter_location: string | null;
 };
 

@@ -32,7 +32,8 @@ export function VotingRulesForm({ rules }: { rules: VotingRules }) {
     <form action={action} className="space-y-5">
       <p className="rounded-xl border border-line bg-purple-soft/40 px-4 py-3.5 text-[13px] leading-relaxed text-charcoal">
         <strong className="font-semibold text-purple-royal">How duplicates are stopped.</strong>{" "}
-        One vote per nominee per mobile number and per email address. Nothing is sent to the voter
+        One vote per nominee per mobile number (and per email, when the voter gives one — email
+        is optional). Only name and mobile are required. Nothing is sent to the voter
         and nothing is verified — the vote is recorded the moment she submits. Several people
         sharing one phone can each vote. The limits below only control how fast votes can come in.
       </p>

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireAdmin } from "@/lib/auth";
 import { leaderboard, nomineeVotes } from "@/lib/leaderboard";
+import { displayMobile } from "@/lib/phone";
 import { categoryStandings } from "@/lib/results";
 import { selectAll } from "@/lib/selectAll";
 
@@ -168,6 +169,7 @@ export async function GET(
     // Newest first, as before; read oldest first so paging is stable.
     const rows = data.reverse().map((v) => ({
       ...v,
+      voter_mobile: displayMobile(v.voter_mobile as string | null),
       nominee_code: (v.nominees as { code?: string } | null)?.code ?? "",
       nominee: (v.nominees as { display_name?: string } | null)?.display_name ?? "",
       nominee_business: (v.nominees as { business_name?: string } | null)?.business_name ?? "",
@@ -270,6 +272,7 @@ export async function GET(
     const { nominee } = detail;
     const rows = detail.votes.map((vote) => ({
       ...vote,
+      voter_mobile: displayMobile(vote.voter_mobile),
       nominee_code: nominee.code ?? "",
       nominee: nominee.display_name,
       business: nominee.business_name,

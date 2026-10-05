@@ -191,8 +191,9 @@ export default async function VotingPage() {
       <div className="rounded-xl border border-gold-champagne/30 bg-gold-soft px-4 py-3 text-[13px] leading-relaxed text-gold-champagne">
         <strong className="font-semibold">What &ldquo;open&rdquo; turns on.</strong> A voter opens a
         nominee&rsquo;s personal link, fills in her details and submits — the vote is recorded
-        straight away, with no code sent. Each nominee can be voted for once per mobile number and
-        once per email address, on top of Turnstile and the rate limits in{" "}
+        straight away, with no code sent. Only name and mobile number are required. Each nominee can
+        be voted for once per mobile number (and once per email, when one is given), on top of
+        Turnstile and the rate limits in{" "}
         <Link href="/admin/settings" className="underline underline-offset-2">
           Settings
         </Link>

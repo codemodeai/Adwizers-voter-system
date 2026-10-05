@@ -21,8 +21,9 @@ import type { VoteOutcome, VoteState } from "./state";
  *
  * Nothing is sent to the voter and nothing is verified: there is no emailed
  * code (removed at the client's request). What holds a voter to one vote per
- * nominee is the two unique indexes on the votes table -- mobile number and
- * email -- plus the rate limits above them.
+ * nominee is the two unique indexes on the votes table -- mobile number
+ * (required) and email (only when one is given) -- plus the rate limits above
+ * them. Name and mobile are the only required fields.
  *
  * There is deliberately no per-device rule (dropped at the client's request):
  * a family sharing one phone can each vote for the same nominee. The device id
@@ -48,6 +49,7 @@ type Parsed = {
    *  in which case `mobileError` says why. */
   mobile: string;
   mobileError?: string;
+  /** Optional: lower-cased when given, empty when left blank. */
   email: string;
   location: string;
   token: string | null;
@@ -104,7 +106,8 @@ function validate(input: Parsed): string | null {
   // The mobile has already been reduced to its standard form in `readBallot`;
   // an empty value here means it was not a usable number.
   if (!input.mobile) return input.mobileError ?? "Please enter a valid mobile number.";
-  if (!input.email || !EMAIL.test(input.email)) return "Please enter a valid email address.";
+  // Optional -- but if one is typed, it has to look like an email address.
+  if (input.email && !EMAIL.test(input.email)) return "Please check your email address, or leave it blank.";
   return null;
 }
 
@@ -188,7 +191,7 @@ async function gate(slug: string, input: Parsed): Promise<GateResult> {
       categoryId: category.id,
       matchedSignal: "rate_limit",
       voterMobile: input.mobile,
-      voterEmail: input.email,
+      voterEmail: input.email || null,
       deviceId,
       ipHash,
     });
@@ -213,7 +216,7 @@ async function gate(slug: string, input: Parsed): Promise<GateResult> {
       categoryId: category.id,
       matchedSignal: "captcha",
       voterMobile: input.mobile,
-      voterEmail: input.email,
+      voterEmail: input.email || null,
       deviceId,
       ipHash,
     });
@@ -259,7 +262,9 @@ async function castVotes(params: {
       category_id: params.categoryId,
       voter_name: params.input.name,
       voter_mobile: params.input.mobile,
-      voter_email: params.input.email,
+      // NULL rather than "" when blank: NULLs never clash in the unique index,
+      // so voters without an email are limited by mobile number alone.
+      voter_email: params.input.email || null,
       voter_location: params.input.location || null,
       device_id: params.deviceId,
       ip_hash: params.ipHash,
@@ -287,7 +292,7 @@ async function castVotes(params: {
         categoryId: params.categoryId,
         matchedSignal: signal,
         voterMobile: params.input.mobile,
-        voterEmail: params.input.email,
+        voterEmail: params.input.email || null,
         deviceId: params.deviceId,
         ipHash: params.ipHash,
       });
@@ -305,7 +310,8 @@ async function castVotes(params: {
     const { data: refs } = await supabase
       .from("votes")
       .select("nominee_id, vote_ref")
-      .eq("voter_email", params.input.email)
+      // By mobile, the one contact detail every vote carries.
+      .eq("voter_mobile", params.input.mobile)
       .in("nominee_id", recordedIds);
 
     const byNominee = new Map(
