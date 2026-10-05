@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import { listCategoriesWithNominees } from "@/lib/nominees";
+
 export const metadata: Metadata = {
   title: "Export · AWE Awards 2026",
   robots: { index: false },
@@ -27,6 +29,12 @@ const DOWNLOADS = [
     format: "CSV",
   },
   {
+    href: "/admin/export/leaderboard",
+    title: "Leaderboard",
+    body: "Every nominee ranked by votes — overall rank, rank in her category, total votes, votes in the last 24 hours and her last vote.",
+    format: "CSV",
+  },
+  {
     href: "/admin/export/category-summary",
     title: "Category-wise summary",
     body: "Votes per category with the ranked nominees inside each — the tally sheet, not the raw rows.",
@@ -42,7 +50,9 @@ const DOWNLOADS = [
  * client-side blob juggling, and the file streams from the server rather than
  * passing through React state on the way.
  */
-export default function ExportPage() {
+export default async function ExportPage() {
+  const groups = (await listCategoriesWithNominees()).filter((g) => g.nominees.length > 0);
+
   return (
     <div className="space-y-6">
       <div>
@@ -76,6 +86,62 @@ export default function ExportPage() {
           </li>
         ))}
       </ul>
+
+      {/* ---- one nominee ------------------------------------------- */}
+      {/* A plain GET form: the browser requests the CSV and saves it, with no
+        * client code. Each leaderboard row has the same download. */}
+      <section className="rounded-2xl border border-line bg-surface p-5">
+        <div className="flex items-start justify-between gap-3">
+          <h2 className="text-[15px] font-bold text-purple-royal">Individual nominee</h2>
+          <span className="shrink-0 rounded-md bg-purple-soft px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-purple-royal">
+            CSV
+          </span>
+        </div>
+        <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed text-ink-muted">
+          Every vote one nominee received: receipt reference, time, and the voter&rsquo;s name,
+          mobile, email and location.
+        </p>
+
+        {groups.length === 0 ? (
+          <p className="mt-4 text-[13px] text-ink-muted">No nominees yet.</p>
+        ) : (
+          <form
+            action="/admin/export/nominee-votes"
+            method="get"
+            className="mt-4 flex flex-wrap items-end gap-3"
+          >
+            <label className="block min-w-[16rem] flex-1">
+              <span className="block text-[12px] font-medium text-ink-muted">Nominee</span>
+              <select
+                name="id"
+                required
+                defaultValue=""
+                className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-[14px] text-charcoal"
+              >
+                <option value="" disabled>
+                  Choose a nominee…
+                </option>
+                {groups.map((group) => (
+                  <optgroup key={group.id} label={group.name}>
+                    {group.nominees.map((nominee) => (
+                      <option key={nominee.id} value={nominee.id}>
+                        {nominee.code ? `${nominee.code} · ` : ""}
+                        {nominee.display_name} — {nominee.business_name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
+            <button
+              type="submit"
+              className="rounded-lg bg-magenta-royal px-5 py-2 text-[14px] font-semibold text-white hover:bg-magenta-dark"
+            >
+              Download ↓
+            </button>
+          </form>
+        )}
+      </section>
 
       {/* ---- backup (section 13) ---------------------------------- */}
       <section className="rounded-2xl border border-gold-champagne/30 bg-gold-soft p-5">

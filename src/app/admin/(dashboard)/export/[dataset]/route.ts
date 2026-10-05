@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 
 import { requireAdmin } from "@/lib/auth";
+import { leaderboard, nomineeVotes } from "@/lib/leaderboard";
 import { categoryStandings } from "@/lib/results";
+import { selectAll } from "@/lib/selectAll";
 
 /**
  * CSV export (Final Plan section 12).
@@ -17,9 +19,24 @@ import { categoryStandings } from "@/lib/results";
  */
 export const dynamic = "force-dynamic";
 
-type Dataset = "applicants" | "nominees" | "votes" | "category-summary" | "backup";
+type Dataset =
+  | "applicants"
+  | "nominees"
+  | "votes"
+  | "category-summary"
+  | "leaderboard"
+  | "nominee-votes"
+  | "backup";
 
-const DATASETS: Dataset[] = ["applicants", "nominees", "votes", "category-summary", "backup"];
+const DATASETS: Dataset[] = [
+  "applicants",
+  "nominees",
+  "votes",
+  "category-summary",
+  "leaderboard",
+  "nominee-votes",
+  "backup",
+];
 
 /**
  * One CSV field.
@@ -59,7 +76,7 @@ function csvResponse(body: string, filename: string) {
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ dataset: string }> },
 ) {
   const { supabase } = await requireAdmin();
@@ -128,10 +145,16 @@ export async function GET(
   }
 
   if (dataset === "votes") {
-    const { data, error } = await supabase
-      .from("votes")
-      .select("*, nominees(display_name, business_name), categories(name)")
-      .order("created_at", { ascending: false });
+    // Paged: a single select stops at Supabase's 1,000-row cap without an
+    // error, which would make this file quietly incomplete.
+    const { data, error } = await selectAll<Record<string, unknown>>((from, to) =>
+      supabase
+        .from("votes")
+        .select("*, nominees(code, display_name, business_name), categories(name)")
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+    );
 
     // The votes table may not exist yet; say so rather than returning an
     // empty file that looks like "nobody voted".
@@ -142,8 +165,10 @@ export async function GET(
       );
     }
 
-    const rows = ((data ?? []) as Record<string, unknown>[]).map((v) => ({
+    // Newest first, as before; read oldest first so paging is stable.
+    const rows = data.reverse().map((v) => ({
       ...v,
+      nominee_code: (v.nominees as { code?: string } | null)?.code ?? "",
       nominee: (v.nominees as { display_name?: string } | null)?.display_name ?? "",
       nominee_business: (v.nominees as { business_name?: string } | null)?.business_name ?? "",
       category: (v.categories as { name?: string } | null)?.name ?? "",
@@ -151,7 +176,7 @@ export async function GET(
 
     return csvResponse(
       toCsv(rows, [
-        "vote_ref", "created_at", "category", "nominee", "nominee_business",
+        "vote_ref", "created_at", "category", "nominee_code", "nominee", "nominee_business",
         "voter_name", "voter_mobile", "voter_email", "voter_location",
         "device_id", "ip_hash", "nominee_id", "category_id", "id",
       ]),
@@ -160,7 +185,13 @@ export async function GET(
   }
 
   if (dataset === "category-summary") {
-    const standings = await categoryStandings();
+    let standings: Awaited<ReturnType<typeof categoryStandings>>;
+    try {
+      standings = await categoryStandings();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "unknown error";
+      return NextResponse.json({ error: `Vote data is not available: ${message}` }, { status: 503 });
+    }
 
     // A category with no nominees still gets a row, so the summary lists every
     // category rather than silently omitting the empty ones.
@@ -192,14 +223,93 @@ export async function GET(
     );
   }
 
+  if (dataset === "leaderboard") {
+    const board = await leaderboard();
+    if (board.votesUnavailable) {
+      return NextResponse.json({ error: "Vote data is not available." }, { status: 503 });
+    }
+
+    const rows = board.rows.map((row) => ({
+      overall_rank: row.rank,
+      category: row.categoryName,
+      category_rank: row.categoryRank,
+      nominee_code: row.code ?? "",
+      nominee: row.displayName,
+      business: row.businessName,
+      published: row.isPublished,
+      votes: row.votes,
+      votes_last_24h: row.votesLast24h,
+      last_vote_at: row.lastVoteAt ?? "",
+    }));
+
+    return csvResponse(
+      toCsv(rows, [
+        "overall_rank", "category", "category_rank", "nominee_code", "nominee", "business",
+        "published", "votes", "votes_last_24h", "last_vote_at",
+      ]),
+      "leaderboard",
+    );
+  }
+
+  if (dataset === "nominee-votes") {
+    const id = new URL(request.url).searchParams.get("id") ?? "";
+    // A uuid, checked before it reaches a query.
+    if (!/^[0-9a-f-]{36}$/i.test(id)) {
+      return NextResponse.json({ error: "Choose a nominee to export." }, { status: 400 });
+    }
+
+    const detail = await nomineeVotes(id);
+    if (!detail) return NextResponse.json({ error: "Nominee not found." }, { status: 404 });
+    if (detail.error) {
+      return NextResponse.json(
+        { error: `Vote data is not available: ${detail.error}` },
+        { status: 503 },
+      );
+    }
+
+    const { nominee } = detail;
+    const rows = detail.votes.map((vote) => ({
+      ...vote,
+      nominee_code: nominee.code ?? "",
+      nominee: nominee.display_name,
+      business: nominee.business_name,
+      category: nominee.categories?.name ?? "",
+    }));
+
+    // Named after her number, so a folder of these sorts and reads sensibly.
+    const name = (nominee.code ?? nominee.display_name)
+      .replace(/[^A-Za-z0-9-]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+
+    return csvResponse(
+      toCsv(rows, [
+        "vote_ref", "created_at", "nominee_code", "nominee", "business", "category",
+        "voter_name", "voter_mobile", "voter_email", "voter_location",
+      ]),
+      `${name || "nominee"}-votes`,
+    );
+  }
+
   // Manual backup (section 13). Supabase's free tier has no managed backups, so
   // this is the free-tier-compatible option the plan names: one JSON file with
   // everything, downloadable on demand.
+  // The three tables that grow are read in pages, so the backup is never
+  // silently cut off at Supabase's 1,000-row cap.
+  const everything = (table: "applicants" | "nominees" | "votes") =>
+    selectAll<Record<string, unknown>>((from, to) =>
+      supabase
+        .from(table)
+        .select("*")
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+    );
+
   const [applicants, nominees, categories, votes, winners, settings] = await Promise.all([
-    supabase.from("applicants").select("*"),
-    supabase.from("nominees").select("*"),
+    everything("applicants"),
+    everything("nominees"),
     supabase.from("categories").select("*"),
-    supabase.from("votes").select("*"),
+    everything("votes"),
     supabase.from("published_winners").select("*"),
     supabase.from("voting_settings").select("*"),
   ]);
@@ -208,10 +318,10 @@ export async function GET(
   const payload = {
     exported_at: new Date().toISOString(),
     note: "AWE Awards 2026 manual backup. Tables that failed to read appear as null.",
-    applicants: applicants.data ?? null,
-    nominees: nominees.data ?? null,
+    applicants: applicants.error ? null : applicants.data,
+    nominees: nominees.error ? null : nominees.data,
     categories: categories.data ?? null,
-    votes: votes.data ?? null,
+    votes: votes.error ? null : votes.data,
     published_winners: winners.data ?? null,
     voting_settings: settings.data ?? null,
   };

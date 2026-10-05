@@ -1,5 +1,6 @@
 import "server-only";
 
+import { selectAll } from "@/lib/selectAll";
 import { createPublicClient } from "@/lib/supabase/public";
 import { createClient } from "@/lib/supabase/server";
 
@@ -42,7 +43,16 @@ export async function categoryStandings(): Promise<CategoryStandings[]> {
       .from("nominees")
       .select("id, category_id, display_name, business_name, photo_path, created_at")
       .order("created_at", { ascending: true }),
-    supabase.from("votes").select("nominee_id, category_id"),
+    // Every vote, paged: publishing winners off a count that stopped at
+    // Supabase's 1,000-row cap would announce the wrong people.
+    selectAll<{ nominee_id: string; category_id: number }>((from, to) =>
+      supabase
+        .from("votes")
+        .select("nominee_id, category_id")
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+    ),
   ]);
 
   const categories = (categoriesRes.data ?? []) as {
@@ -61,7 +71,10 @@ export async function categoryStandings(): Promise<CategoryStandings[]> {
     created_at: string;
   }[];
 
-  const votes = (votesRes.data ?? []) as { nominee_id: string; category_id: number }[];
+  // Refuse rather than rank a partial read: this feeds the reveal, and winners
+  // computed from half the votes must never be publishable.
+  if (votesRes.error) throw new Error(`Could not read votes: ${votesRes.error.message}`);
+  const votes = votesRes.data;
 
   const perNominee = new Map<string, number>();
   const perCategory = new Map<number, number>();

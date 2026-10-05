@@ -13,6 +13,7 @@ const MODULES = [
   { href: "/admin/categories", label: "Categories", ready: true },
   { href: "/admin/voting", label: "Voting Control", ready: true },
   { href: "/admin/analytics", label: "Analytics", ready: true },
+  { href: "/admin/leaderboard", label: "Leaderboard", ready: true },
   { href: "/admin/results", label: "Results / Winners", ready: true },
   { href: "/admin/export", label: "Export", ready: true },
   { href: "/admin/settings", label: "Settings", ready: true },

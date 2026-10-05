@@ -43,7 +43,12 @@ export async function publishResults(): Promise<ResultsActionResult> {
     };
   }
 
-  const standings = await categoryStandings();
+  let standings: Awaited<ReturnType<typeof categoryStandings>>;
+  try {
+    standings = await categoryStandings();
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Could not read votes." };
+  }
 
   const rows = standings.flatMap((category) =>
     category.rows

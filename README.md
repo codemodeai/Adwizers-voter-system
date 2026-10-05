@@ -93,6 +93,9 @@ npm run dev
 | `/admin/nominees` | admin | Nominees grouped by category — voting links, publish, reorder, email |
 | `/admin/nominees/[id]` | admin | Edit the public profile |
 | `/admin/categories` | admin | Categories + each one's directory link |
+| `/admin/leaderboard` | admin | Every nominee ranked by votes, filter by category |
+| `/admin/leaderboard/[id]` | admin | One nominee's individual votes + CSV download |
+| `/admin/export` | admin | CSV exports (incl. leaderboard, per-nominee votes) + JSON backup |
 | `/nominee/[code]` | form | A nominee's personal voting page — the link she shares |
 | `/vote/[slug]` | form | Category directory — lists nominees, links to their pages |
 
