@@ -28,9 +28,16 @@ The category link, `/vote/[slug]`, is now a **directory**: every nominee in the
 category with a button to her own page. No vote is cast there; it stays so the
 category links already shared still lead somewhere useful.
 
-The duplicate rules are unchanged — one vote per nominee per mobile, per email
-and per device, enforced by unique indexes on `votes`. Switching to personal
-links needed no schema change.
+### Duplicate votes
+
+One vote per nominee **per mobile number** and **per email address**, enforced
+by unique indexes on `votes`. There is no per-device rule (dropped at the
+client's request, migration `20261005000001`): several people sharing one phone
+can each vote. Mobile numbers are checked to be a real 10-digit Indian mobile
+(or a `+`country-code number) and stored in one standard form
+(`+919876543210`), so the same number typed with spaces, a 0 or +91 is still
+one voter — see `src/lib/phone.ts`. Neither the mobile nor the email is
+verified; the emailed code is an optional setting, off by default.
 
 ---
 

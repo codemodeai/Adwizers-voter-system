@@ -197,8 +197,9 @@ export default async function VotingPage() {
       <div className="rounded-xl border border-gold-champagne/30 bg-gold-soft px-4 py-3 text-[13px] leading-relaxed text-gold-champagne">
         <strong className="font-semibold">What &ldquo;open&rdquo; turns on.</strong> A voter opens a
         nominee&rsquo;s personal link, fills in her details and submits. Each nominee can be voted for once per
-        mobile number, once per email address and once per device, on top of Turnstile and the rate
-        limits. The emailed 6-digit code is a separate switch, currently{" "}
+        mobile number and once per email address, on top of Turnstile and the rate limits. Mobile
+        numbers are checked to be real 10-digit numbers and compared in one standard form, so the
+        same number typed differently is still one voter. A shared phone can vote once per person. The emailed 6-digit code is a separate switch, currently{" "}
         <strong className="font-semibold">
           {rules.require_email_verification ? "on" : "off"}
         </strong>{" "}
