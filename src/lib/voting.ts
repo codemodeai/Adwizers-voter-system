@@ -69,7 +69,7 @@ export async function getVotingSettings(): Promise<VotingSettings> {
 }
 
 /**
- * Public read for the nominee voting pages and the category directory.
+ * Public read for the nominee voting pages.
  *
  * Falls back to "not started" rather than throwing when the row or table is
  * missing, so a voting page never breaks over a settings read -- it reports

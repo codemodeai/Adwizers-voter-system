@@ -7,7 +7,7 @@ import { NomineeLinkTools } from "@/components/admin/NomineeLinkTools";
 import { NotifyBadge } from "@/components/admin/NotifyBadge";
 import { PublishToggle } from "@/components/admin/PublishToggle";
 import { listCategories } from "@/lib/applicants";
-import { categoryVoteUrl, getNominee, nomineeVoteUrl, signNomineePhotos } from "@/lib/nominees";
+import { getNominee, nomineeVoteUrl, signNomineePhotos } from "@/lib/nominees";
 import { signOriginal } from "@/lib/photoStorage";
 import { notifyState } from "@/lib/types";
 
@@ -101,16 +101,6 @@ export default async function NomineePage({ params }: PageProps<"/admin/nominees
           >
             Original entry
           </Link>
-          {nominee.categories && (
-            <a
-              href={categoryVoteUrl(nominee.categories.slug)}
-              target="_blank"
-              rel="noreferrer"
-              className="font-semibold text-magenta-royal hover:underline"
-            >
-              Category directory ↗
-            </a>
-          )}
         </div>
       </div>
 

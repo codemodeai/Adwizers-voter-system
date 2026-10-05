@@ -7,10 +7,7 @@ import {
   setCategoryActive,
   updateCategory,
 } from "@/app/admin/(dashboard)/categories/actions";
-import {
-  EMPTY_CATEGORY_FORM_STATE,
-  slugify,
-} from "@/app/admin/(dashboard)/categories/state";
+import { EMPTY_CATEGORY_FORM_STATE } from "@/app/admin/(dashboard)/categories/state";
 import { ReorderButtons } from "@/components/admin/ReorderButtons";
 import { Button } from "@/components/ui/Button";
 import { inputClass } from "@/components/ui/Field";
@@ -28,17 +25,15 @@ export type CategoryCardNominee = {
 /**
  * One category as a full-width box (Final Plan section 5).
  *
- * The category is the container and the nominees are cards inside it. The link
- * in the header is the category's directory page, which lists these same
- * nominees with a button through to each one's personal voting link -- the
- * personal links themselves are sent from the Nominees screen.
+ * The category is the container and the nominees are cards inside it. A
+ * category has no public page or link of its own -- voting happens only on
+ * each nominee's personal link, sent from the Nominees screen.
  */
 export function CategoryCard({
   id,
   name,
   slug,
   isActive,
-  voteUrl,
   nominees,
   photoUrls,
   first,
@@ -48,7 +43,6 @@ export function CategoryCard({
   name: string;
   slug: string;
   isActive: boolean;
-  voteUrl: string;
   nominees: CategoryCardNominee[];
   photoUrls: Record<string, string>;
   first: boolean;
@@ -110,7 +104,7 @@ export function CategoryCard({
         {editing ? (
           <form action={action} className="mt-4 rounded-xl bg-canvas p-4">
             <input type="hidden" name="id" value={id} />
-            <SlugEditor name={name} slug={slug} />
+            <NameEditor name={name} slug={slug} />
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <Button type="submit" className="px-5 py-2 text-[13px]">
                 Save
@@ -127,14 +121,7 @@ export function CategoryCard({
               )}
             </div>
           </form>
-        ) : (
-          <div className="mt-3.5">
-            <p className="mb-1.5 text-[12px] font-medium text-ink-muted">
-              Directory page — lists these nominees. Votes are cast on each nominee&rsquo;s own link.
-            </p>
-            <LinkBlock url={voteUrl} disabled={!isActive} />
-          </div>
-        )}
+        ) : null}
       </div>
 
       {/* ---- box body: the nominee cards --------------------------- */}
@@ -247,136 +234,17 @@ function NomineeMiniCard({
 }
 
 /**
- * The category's directory link, as one large copy target.
- *
- * Clicking anywhere copies. The clipboard write can be refused (insecure
- * origin, denied permission), so failure falls back to telling the admin to
- * select the text rather than silently doing nothing.
+ * Renaming a category. The internal slug travels unchanged as a hidden field:
+ * there are no public category links any more, so nothing about a rename
+ * should touch it.
  */
-function LinkBlock({ url, disabled }: { url: string; disabled: boolean }) {
-  const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
-
-  const withoutScheme = url.replace(/^https?:\/\//, "");
-  const cut = withoutScheme.indexOf("/vote/");
-  const host = cut === -1 ? "" : withoutScheme.slice(0, cut);
-  const path = cut === -1 ? withoutScheme : withoutScheme.slice(cut);
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(url);
-      setState("copied");
-    } catch {
-      setState("failed");
-    }
-    setTimeout(() => setState("idle"), 2000);
-  }
-
+function NameEditor({ name, slug }: { name: string; slug: string }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-      <button
-        type="button"
-        onClick={copy}
-        title={disabled ? `${url} — this category is hidden, so the page is closed` : `Copy ${url}`}
-        className={`group min-w-0 flex-1 rounded-xl px-3.5 py-2.5 text-left ring-1 ring-inset
-                    transition-colors sm:max-w-lg ${
-                      disabled
-                        ? "bg-canvas ring-line"
-                        : "bg-purple-soft/60 ring-purple-royal/10 hover:bg-purple-soft hover:ring-purple-royal/25"
-                    }`}
-      >
-        <span className="flex items-center justify-between gap-3">
-          <span className="min-w-0">
-            {host && (
-              <span className="block truncate font-mono text-[11px] leading-tight text-ink-muted">
-                {host}
-              </span>
-            )}
-            <span
-              className={`block break-all font-mono text-[13px] font-semibold leading-snug ${
-                disabled ? "text-neutral-400 line-through" : "text-purple-royal"
-              }`}
-            >
-              {path}
-            </span>
-          </span>
-
-          <span
-            className={`shrink-0 rounded-md px-2.5 py-1 text-[11px] font-bold uppercase
-                        tracking-wide transition-colors ${
-                          state === "copied"
-                            ? "bg-magenta-royal text-white"
-                            : "bg-white text-magenta-royal ring-1 ring-inset ring-magenta-royal/20 group-hover:bg-magenta-royal group-hover:text-white"
-                        }`}
-          >
-            {state === "copied" ? "Copied" : state === "failed" ? "Select" : "Copy"}
-          </span>
-        </span>
-      </button>
-
-      {disabled ? (
-        <p className="text-[12px] leading-snug text-ink-muted">
-          Hidden — this page is closed and the link will not open.
-        </p>
-      ) : (
-        <a
-          href={url}
-          target="_blank"
-          rel="noreferrer"
-          className="text-[13px] font-medium text-ink-muted underline underline-offset-2
-                     hover:text-purple-royal"
-        >
-          Open the page ↗
-        </a>
-      )}
-    </div>
-  );
-}
-
-/**
- * Name and link, with the link previewed live.
- *
- * Changing a slug breaks every poster and forwarded message already carrying
- * the old one, so the warning appears the moment the value diverges from what
- * is saved -- before the admin commits, not after.
- */
-function SlugEditor({ name, slug }: { name: string; slug: string }) {
-  const [nextName, setNextName] = useState(name);
-  const [nextSlug, setNextSlug] = useState(slug);
-
-  const effective = slugify(nextSlug || nextName);
-  const changed = effective !== slug;
-
-  return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      <label className="block space-y-1.5">
-        <span className="block text-[13px] font-medium text-heading">Category name</span>
-        <input
-          name="name"
-          value={nextName}
-          onChange={(event) => setNextName(event.target.value)}
-          className={`${inputClass} py-2 text-[14px]`}
-        />
-      </label>
-
-      <label className="block space-y-1.5">
-        <span className="block text-[13px] font-medium text-heading">Link</span>
-        <input
-          name="slug"
-          value={nextSlug}
-          onChange={(event) => setNextSlug(event.target.value)}
-          className={`${inputClass} py-2 font-mono text-[13px]`}
-        />
-        <span className="block break-all font-mono text-[12px] text-ink-muted">
-          /vote/<span className="font-semibold text-charcoal">{effective || "…"}</span>
-        </span>
-        {changed && (
-          <span role="alert" className="block text-[12px] font-medium leading-snug text-magenta-dark">
-            This changes the category&rsquo;s directory link. Anything already sent out pointing at
-            /vote/{slug} stops working. Nominees&rsquo; own voting links are not affected.
-          </span>
-        )}
-      </label>
-    </div>
+    <label className="block max-w-md space-y-1.5">
+      <span className="block text-[13px] font-medium text-heading">Category name</span>
+      <input name="name" defaultValue={name} className={`${inputClass} py-2 text-[14px]`} />
+      <input type="hidden" name="slug" value={slug} />
+    </label>
   );
 }
 

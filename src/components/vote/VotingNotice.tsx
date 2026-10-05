@@ -6,9 +6,8 @@ type Copy = { icon: string; title: string; body: string };
  * What a visitor is told about voting, from the switches the dashboard sets
  * (Final Plan section 10, manual variant).
  *
- * Two wordings of the same states: a nominee's personal page, where the vote
- * is cast, and her category's directory, which only points to those pages.
- * Every branch is careful never to imply a vote can be cast when none can.
+ * Shown on a nominee's personal page, the only place a vote is cast. Every
+ * branch is careful never to imply a vote can be cast when none can.
  */
 const NOMINEE: Record<CategoryVotingState, Copy> = {
   not_started: {
@@ -43,33 +42,8 @@ const NOMINEE: Record<CategoryVotingState, Copy> = {
   },
 };
 
-const DIRECTORY: Record<CategoryVotingState, Copy> = {
-  ...NOMINEE,
-  not_started: {
-    icon: "\u{1F5F3}\u{FE0F}",
-    title: "Voting has not opened yet.",
-    body: "Each nominee has her own voting page. When voting opens, tap a nominee to vote for her.",
-  },
-  open: {
-    icon: "\u{1F5F3}\u{FE0F}",
-    title: "Voting is open.",
-    body: "Tap Vote on a nominee to open her page and vote for her.",
-  },
-  category_paused: {
-    icon: "\u{23F8}\u{FE0F}",
-    title: "Voting is paused for this category.",
-    body: "Other categories are still running. Check back shortly — the nominees below are unchanged.",
-  },
-};
-
-export function VotingNotice({
-  state,
-  page,
-}: {
-  state: CategoryVotingState;
-  page: "nominee" | "directory";
-}) {
-  const { icon, title, body } = (page === "nominee" ? NOMINEE : DIRECTORY)[state];
+export function VotingNotice({ state }: { state: CategoryVotingState }) {
+  const { icon, title, body } = NOMINEE[state];
 
   return (
     <div

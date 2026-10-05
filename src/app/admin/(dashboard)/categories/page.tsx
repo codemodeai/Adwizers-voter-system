@@ -3,8 +3,7 @@ import Link from "next/link";
 
 import { CategoryCard } from "@/components/admin/CategoryCard";
 import { NewCategoryForm } from "@/components/admin/NewCategoryForm";
-import { categoryVoteUrl, listCategoriesWithNominees, signNomineePhotos } from "@/lib/nominees";
-import { FORM_ORIGIN } from "@/lib/target";
+import { listCategoriesWithNominees, signNomineePhotos } from "@/lib/nominees";
 
 export const metadata: Metadata = {
   title: "Categories · AWE Awards 2026",
@@ -14,10 +13,9 @@ export const metadata: Metadata = {
 /**
  * Categories (Final Plan section 5).
  *
- * Each category is a full-width box holding its own nominee cards. Votes are
- * cast on each nominee's personal link, which lives on the Nominees screen;
- * the category link here opens a directory of that category's nominees, kept
- * so the category links already sent out still lead somewhere useful.
+ * Each category is a full-width box holding its own nominee cards. Categories
+ * have no public page or link: votes are cast only on each nominee's personal
+ * link, which lives on the Nominees screen.
  */
 export default async function CategoriesPage() {
   const groups = await listCategoriesWithNominees();
@@ -35,12 +33,12 @@ export default async function CategoriesPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-purple-royal">Categories</h1>
           <p className="mt-1 max-w-2xl text-sm text-ink-muted">
-            Voting happens on each nominee&rsquo;s own link — copy or send those from{" "}
+            Categories group the nominees. There is no category voting page — voting happens only
+            on each nominee&rsquo;s own link. Copy or send those from{" "}
             <Link href="/admin/nominees" className="font-semibold text-magenta-royal hover:underline">
               Nominees
             </Link>
-            . A category&rsquo;s link opens a directory of its nominees, each with a button to her
-            voting page.
+            .
           </p>
           <p className="mt-2 text-[13px] text-ink-muted">
             <span className="font-semibold text-charcoal">{groups.length}</span> categories ·{" "}
@@ -55,16 +53,6 @@ export default async function CategoriesPage() {
         </div>
       </div>
 
-      {/* Without FORM_ORIGIN the links below are relative paths, which are
-        * useless pasted into WhatsApp. Say so rather than let someone copy one. */}
-      {!FORM_ORIGIN && (
-        <div className="rounded-xl border border-gold-champagne/30 bg-gold-soft px-4 py-3 text-[13px] leading-relaxed text-gold-champagne">
-          <strong className="font-semibold">Links are showing as paths, not full URLs.</strong> Set{" "}
-          <code className="font-mono">FORM_ORIGIN</code> on this deployment so the copy button hands
-          you a link that works outside the dashboard.
-        </div>
-      )}
-
       <ul className="space-y-3">
         {groups.map((group, index) => (
           <CategoryCard
@@ -73,7 +61,6 @@ export default async function CategoriesPage() {
             name={group.name}
             slug={group.slug}
             isActive={group.is_active}
-            voteUrl={categoryVoteUrl(group.slug)}
             nominees={group.nominees.map((n) => ({
               id: n.id,
               display_name: n.display_name,

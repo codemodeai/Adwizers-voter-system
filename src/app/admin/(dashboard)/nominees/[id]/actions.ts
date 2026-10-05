@@ -90,18 +90,9 @@ export async function updateNominee(
 
   if (error) return { status: "error", message: `Could not save: ${error.message}` };
 
-  // A category move changes two public pages, not one.
-  const { data: after } = await supabase
-    .from("nominees")
-    .select("categories(slug)")
-    .eq("id", id)
-    .maybeSingle<{ categories: { slug: string } | null }>();
-
   revalidatePath("/admin/nominees");
   revalidatePath(`/admin/nominees/${id}`);
   revalidatePath("/admin/categories");
-  if (current.categories?.slug) revalidatePath(`/vote/${current.categories.slug}`);
-  if (after?.categories?.slug) revalidatePath(`/vote/${after.categories.slug}`);
 
   return { status: "saved", message: "Profile saved." };
 }
@@ -143,7 +134,6 @@ export async function updateNomineePhoto(
     revalidatePath(`/admin/nominees/${id}`);
     revalidatePath("/admin/nominees");
     revalidatePath("/admin/categories");
-    if (nominee.categories?.slug) revalidatePath(`/vote/${nominee.categories.slug}`);
     return { status: "saved", message };
   };
 

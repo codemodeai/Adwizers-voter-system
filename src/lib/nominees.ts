@@ -1,7 +1,6 @@
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createPublicClient } from "@/lib/supabase/public";
 import { createClient } from "@/lib/supabase/server";
 import { formUrl } from "@/lib/target";
 import type { Category, NomineeWithCategory } from "@/lib/types";
@@ -10,22 +9,6 @@ import type { Category, NomineeWithCategory } from "@/lib/types";
 // nominee her link straight into her chat. Admin-only: this select runs under
 // the admin's session, where RLS lets it read applicants.
 const SELECT = "*, categories(id, name, slug, is_active), applicants(whatsapp_number)";
-
-/**
- * A category's page. Since voting moved to personal links this is a directory
- * -- every nominee in the category, each with a button through to her own page
- * -- kept so links already sent out still lead somewhere useful.
- */
-export function categoryVoteUrl(slug: string): string {
-  return formUrl(`/vote/${slug}`);
-}
-
-/** Absolute category URL, or null when no public origin is configured. Only
- *  used now as the email's fallback for a nominee with no number. */
-export function absoluteCategoryVoteUrl(slug: string): string | null {
-  const url = categoryVoteUrl(slug);
-  return url.startsWith("http") ? url : null;
-}
 
 /**
  * A nominee's own voting link: the one she shares with her customers and
@@ -171,8 +154,8 @@ export async function listCategoriesWithNominees(): Promise<CategoryWithNominees
 // prettier-ignore
 const PUBLIC_SELECT = "id, category_id, display_name, business_name, area_location, bio, photo_path, social_instagram, social_facebook, social_website, social_whatsapp, sort_order, created_at";
 
-/** A nominee as a voting page sees her. Notably absent: applicant_id and the
- *  whole notification trail. */
+/** A nominee as her voting page sees her. Notably absent: applicant_id and
+ *  the whole notification trail. */
 export type PublicNominee = {
   id: string;
   category_id: number;
@@ -191,79 +174,6 @@ export type PublicNominee = {
    *  that predates the column. */
   code: string | null;
 };
-
-/**
- * The public category page (section 6). Reads as `anon` through the RLS policy,
- * which is what limits this to published nominees in an active category -- the
- * row filter is the database's, not this function's.
- */
-export async function publicCategoryPage(slug: string): Promise<{
-  category: (Pick<Category, "id" | "name" | "slug"> & { voting_paused: boolean }) | null;
-  nominees: PublicNominee[];
-}> {
-  const supabase = createPublicClient();
-
-  // `*` for the same reason as the admin listing: it cannot fail against a
-  // database that predates a column this code reads.
-  const { data: row } = await supabase
-    .from("categories")
-    .select("*")
-    .eq("slug", slug)
-    .eq("is_active", true)
-    .maybeSingle();
-
-  const category = row as
-    | (Pick<Category, "id" | "name" | "slug"> & { voting_paused?: boolean })
-    | null;
-
-  if (!category) return { category: null, nominees: [] };
-
-  const { data } = await supabase
-    .from("nominees")
-    .select(PUBLIC_SELECT)
-    .eq("category_id", category.id)
-    .eq("is_published", true)
-    .order("sort_order", { ascending: true })
-    .order("created_at", { ascending: true });
-
-  const nominees = (data ?? []) as Omit<PublicNominee, "code">[];
-
-  return {
-    category: {
-      id: category.id,
-      name: category.name,
-      slug: category.slug,
-      voting_paused: category.voting_paused ?? false,
-    },
-    nominees: await withCodes(nominees),
-  };
-}
-
-/**
- * Attaches each nominee's number, so a directory card can link to her page.
- *
- * `anon` has no grant on the code column, so it is read here with the service
- * role -- but only for the ids the anon read above already returned. The rows
- * a visitor sees are still decided by RLS; this only adds one column to them.
- */
-async function withCodes(nominees: Omit<PublicNominee, "code">[]): Promise<PublicNominee[]> {
-  if (nominees.length === 0) return [];
-
-  const supabase = createAdminClient();
-  const { data } = await supabase
-    .from("nominees")
-    .select("id, code")
-    .in(
-      "id",
-      nominees.map((n) => n.id),
-    );
-
-  const codes = new Map(
-    ((data ?? []) as { id: string; code: string | null }[]).map((row) => [row.id, row.code]),
-  );
-
-  return nominees.map((nominee) => ({ ...nominee, code: codes.get(nominee.id) ?? null }));
-}
 
 export type PublicNomineeCategory = Pick<Category, "id" | "name" | "slug"> & {
   voting_paused: boolean;

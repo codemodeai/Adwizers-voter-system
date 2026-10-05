@@ -4,7 +4,7 @@ import type { Email } from "@/lib/email/resend";
 
 /**
  * The nominee selection email (Final Plan sections 3 and 4) -- sent the moment
- * an applicant is promoted and her card goes live on the category page.
+ * an applicant is promoted and her personal voting page goes live.
  *
  * Written to state only what is certainly true at send time: she is a nominee,
  * this is her category, and this is her personal voting link -- the one she
@@ -39,11 +39,8 @@ export function nomineeSelectedEmail(params: {
   /** Absolute URL of her personal voting page, or null when the public origin
    *  is not configured (local development). */
   voteUrl: string | null;
-  /** False only for a row with no nominee number, where voteUrl is her
-   *  category's page instead -- so the copy never calls that link "yours". */
-  personalLink?: boolean;
 }): Email {
-  const { to, name, businessName, categoryName, code, voteUrl, personalLink = true } = params;
+  const { to, name, businessName, categoryName, code, voteUrl } = params;
 
   const firstName = name.trim().split(/\s+/)[0] || name.trim();
   const subject = `You're a nominee — AWE Awards 2026 (${categoryName})`;
@@ -58,11 +55,7 @@ export function nomineeSelectedEmail(params: {
     `Business: ${businessName}`,
     "",
     ...(code ? [`Please quote your Nominee ID when you contact us.`, ""] : []),
-    ...(voteUrl
-      ? personalLink
-        ? [`Your personal voting link: ${voteUrl}`, ""]
-        : [`Your nominee card is on your category's page: ${voteUrl}`, ""]
-      : []),
+    ...(voteUrl ? [`Your personal voting link: ${voteUrl}`, ""] : []),
     SHARE_LINE,
     "",
     CATEGORY_NOTICE,
@@ -134,7 +127,7 @@ export function nomineeSelectedEmail(params: {
               <a href="${escapeAttr(voteUrl)}"
                  style="display:inline-block;background:#c2006e;color:#ffffff;text-decoration:none;
                         font:700 15px/1 Arial,Helvetica,sans-serif;padding:14px 30px;border-radius:8px;">
-                ${personalLink ? "Open your voting page" : "See your category page"}
+                Open your voting page
               </a>
               <p style="margin:12px 0 0;font:400 12px/1.6 Arial,Helvetica,sans-serif;color:#6b6472;word-break:break-all;">
                 ${escapeHtml(voteUrl)}

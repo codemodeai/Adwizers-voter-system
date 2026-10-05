@@ -197,7 +197,6 @@ async function followSharedPhoto(
   revalidatePath("/winners");
   for (const nominee of shared) {
     revalidatePath(`/admin/nominees/${nominee.id}`);
-    if (nominee.categories?.slug) revalidatePath(`/vote/${nominee.categories.slug}`);
   }
 }
 

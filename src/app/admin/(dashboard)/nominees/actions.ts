@@ -8,20 +8,18 @@ import { notifyNominee } from "@/lib/email/notify";
 export type NomineeActionResult = { ok: boolean; error?: string; notice?: string };
 
 /** Every surface a nominee change can show up on. */
-function revalidateNominee(id: string, slug?: string | null) {
+function revalidateNominee(id: string) {
   revalidatePath("/admin/nominees");
   revalidatePath(`/admin/nominees/${id}`);
   revalidatePath("/admin/categories");
-  if (slug) revalidatePath(`/vote/${slug}`);
 }
 
 /**
  * Publish / unpublish (Final Plan section 5).
  *
- * Unpublishing closes her voting link and takes her off the category directory
- * without deleting anything -- the profile, the notification trail, and the
- * link back to her original entry all survive, so it can be reversed with one
- * click.
+ * Unpublishing closes her voting link without deleting anything -- the
+ * profile, the notification trail, and the link back to her original entry all
+ * survive, so it can be reversed with one click.
  */
 export async function setNomineePublished(
   id: string,
@@ -44,7 +42,7 @@ export async function setNomineePublished(
 
   if (error) return { ok: false, error: error.message };
 
-  revalidateNominee(id, nominee.categories?.slug);
+  revalidateNominee(id);
   return { ok: true };
 }
 
@@ -84,17 +82,16 @@ export async function resendNomineeEmail(id: string): Promise<NomineeActionResul
     name: nominee.display_name,
     businessName: nominee.business_name,
     categoryName: nominee.categories.name,
-    categorySlug: nominee.categories.slug,
   });
 
-  revalidateNominee(id, nominee.categories.slug);
+  revalidateNominee(id);
 
   if (problem) return { ok: false, error: problem };
   return { ok: true, notice: "Email sent." };
 }
 
 /**
- * Moves a nominee one place up or down within her category page.
+ * Moves a nominee one place up or down within her category on the dashboard.
  *
  * Written as a swap of two `sort_order` values rather than a renumbering of the
  * whole list, so two admins reordering at once cannot shuffle each other's
@@ -151,6 +148,6 @@ export async function moveNominee(
   const failed = results.find((r) => r.error);
   if (failed?.error) return { ok: false, error: failed.error.message };
 
-  revalidateNominee(id, nominee.categories?.slug);
+  revalidateNominee(id);
   return { ok: true };
 }

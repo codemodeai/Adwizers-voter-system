@@ -4,10 +4,7 @@ import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 
 import { createCategory } from "@/app/admin/(dashboard)/categories/actions";
-import {
-  EMPTY_CATEGORY_FORM_STATE,
-  slugify,
-} from "@/app/admin/(dashboard)/categories/state";
+import { EMPTY_CATEGORY_FORM_STATE } from "@/app/admin/(dashboard)/categories/state";
 import { Button } from "@/components/ui/Button";
 import { inputClass } from "@/components/ui/Field";
 
@@ -56,10 +53,6 @@ export function NewCategoryForm() {
             placeholder="e.g. Photography"
             className={inputClass}
           />
-          <span className="block text-[13px] text-ink-muted">
-            Link will be /vote/
-            <span className="font-medium text-charcoal">{slugify(name) || "…"}</span>
-          </span>
         </label>
 
         <div className="flex items-center gap-2 pb-6">

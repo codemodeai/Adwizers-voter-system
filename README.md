@@ -24,9 +24,11 @@ name. Admins send it from **Nominees** (Copy link / Send on WhatsApp — the cha
 opens straight to the WhatsApp number on her entry) and it is in the selection
 email. A voter opens it, fills name, mobile and email, and votes for her alone.
 
-The category link, `/vote/[slug]`, is now a **directory**: every nominee in the
-category with a button to her own page. No vote is cast there; it stays so the
-category links already shared still lead somewhere useful.
+There is **no category voting page**. The old category links (`/vote/[slug]`)
+were withdrawn at the client's request and now return "not found", and the
+vote action refuses any submission that does not carry a nominee number.
+Categories still group nominees in the dashboard and keep their per-category
+pause.
 
 ### Duplicate votes
 
@@ -99,12 +101,11 @@ npm run dev
 | `/admin/applicants/[id]` | admin | Review & edit a submission |
 | `/admin/nominees` | admin | Nominees grouped by category — voting links, publish, reorder, email |
 | `/admin/nominees/[id]` | admin | Edit the public profile |
-| `/admin/categories` | admin | Categories + each one's directory link |
+| `/admin/categories` | admin | Categories and the nominees in each |
 | `/admin/leaderboard` | admin | Every nominee ranked by votes, filter by category |
 | `/admin/leaderboard/[id]` | admin | One nominee's individual votes + CSV download |
 | `/admin/export` | admin | CSV exports (incl. leaderboard, per-nominee votes) + JSON backup |
 | `/nominee/[code]` | form | A nominee's personal voting page — the link she shares |
-| `/vote/[slug]` | form | Category directory — lists nominees, links to their pages |
 
 `npm run dev` serves both surfaces on one port, which is how local development
 normally runs. To drive the two-domain split locally instead:
