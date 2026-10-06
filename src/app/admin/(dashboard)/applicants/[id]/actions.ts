@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requireAdmin } from "@/lib/auth";
+import { nomineesToFollow } from "@/lib/photoFollow";
 import {
   clearOriginals,
   extensionFor,
@@ -159,45 +160,46 @@ export async function updateApplicant(
 type AdminSupabase = Awaited<ReturnType<typeof requireAdmin>>["supabase"];
 
 /**
- * Promotion copies the applicant's logo path straight onto her nominee row, so
- * the two rows point at one storage object rather than a copy of it. That makes
- * a photo change here silently a photo change on the public card -- except when
- * the new file lands at a different path, which every crop does because a crop
- * is always re-encoded as JPEG. The nominee would be left pointing at the object
- * this action just deleted, and her card, the voting page and the winners page
- * would all render a broken image.
+ * Keeps the nominee's card photo in step with this entry's photo.
  *
- * So: any nominee still sharing the old object follows it to the new one (or to
- * nothing, on removal). A nominee who has since been given her own photo under
- * `nominees/` does not match, and keeps the picture she was given.
+ * Promotion copies the applicant's logo path onto her nominee row, so the two
+ * rows point at one storage object rather than a copy of it. Two kinds of
+ * nominee follow a change made here:
+ *
+ *  - one still sharing the old object follows it to the new one (or to
+ *    nothing, on removal) -- otherwise a crop, which always lands at a new
+ *    path, would leave her card pointing at a file this action just deleted;
+ *  - one with no photo at all picks up the new one. She was promoted before
+ *    the entry had a photo, and without this an upload made afterwards would
+ *    never reach her voting page.
+ *
+ * A nominee given her own photo on the nominee screen (under `nominees/`)
+ * matches neither, and keeps the picture she was given.
  */
 async function followSharedPhoto(
   supabase: AdminSupabase,
   applicantId: string,
-  fromPath: string,
+  fromPath: string | null,
   toPath: string | null,
 ) {
-  const { data: shared } = await supabase
+  const { data: linked } = await supabase
     .from("nominees")
-    .select("id, categories(slug)")
+    .select("id, photo_path")
     .eq("applicant_id", applicantId)
-    .eq("photo_path", fromPath)
-    .returns<{ id: string; categories: { slug: string } | null }[]>();
+    .returns<{ id: string; photo_path: string | null }[]>();
 
-  if (!shared?.length) return;
+  const follow = nomineesToFollow(linked ?? [], fromPath, toPath);
 
-  await supabase
-    .from("nominees")
-    .update({ photo_path: toPath })
-    .eq("applicant_id", applicantId)
-    .eq("photo_path", fromPath);
+  if (follow.length === 0) return;
+
+  for (const nominee of follow) {
+    await supabase.from("nominees").update({ photo_path: toPath }).eq("id", nominee.id);
+    revalidatePath(`/admin/nominees/${nominee.id}`);
+  }
 
   revalidatePath("/admin/nominees");
   revalidatePath("/admin/categories");
   revalidatePath("/winners");
-  for (const nominee of shared) {
-    revalidatePath(`/admin/nominees/${nominee.id}`);
-  }
 }
 
 /** Replaces or removes the applicant's photo in the private storage bucket. */
@@ -240,9 +242,7 @@ export async function updateLogo(_prev: LogoState, formData: FormData): Promise<
     }
 
     await supabase.from("applicants").update({ logo_path: restored.path }).eq("id", id);
-    if (applicant.logo_path) {
-      await followSharedPhoto(supabase, id, applicant.logo_path, restored.path);
-    }
+    await followSharedPhoto(supabase, id, applicant.logo_path, restored.path);
 
     revalidatePath("/admin/applicants");
     revalidatePath(`/admin/applicants/${id}`);
@@ -280,7 +280,7 @@ export async function updateLogo(_prev: LogoState, formData: FormData): Promise<
   }
 
   await supabase.from("applicants").update({ logo_path: path }).eq("id", id);
-  if (applicant.logo_path) await followSharedPhoto(supabase, id, applicant.logo_path, path);
+  await followSharedPhoto(supabase, id, applicant.logo_path, path);
 
   revalidatePath("/admin/applicants");
   revalidatePath(`/admin/applicants/${id}`);
